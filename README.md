@@ -1,1 +1,442 @@
-# gatewaystack
+# Gatewaystack — User-Scoped AI Model Trust & Governance
+
+A **user-scoped AI gateway** for model trust and governance.
+
+Gatewaystack solves the **user-scoped data access problem for AI models** — and extends it into a broader ecosystem for **trust, identity, policy, and governance** across agentic systems.
+
+Gatewaystack is composed of modular packages that can **standalone** or as part of an *Agentic Control Plane*.
+
+---
+
+### 🧩 Trust Layer
+
+| Package | Status | Description |
+|----------|---------|-------------|
+| **ai-auth-gateway** | ✅ *Published* | Verifies RS256 OAuth tokens, enforces per-tool scopes, rate-limits per user/tenant, and optionally proxies requests with user identity injection. |
+| **ai-identity-gateway** | 🧭 *Roadmap* | Central identity resolver across agents and models. |
+| **ai-access-gateway** | 🧭 *Roadmap* | Fine-grained access control for user-scoped data and model capabilities. |
+| **ai-policy-gateway** | 🧭 *Roadmap* | Declarative policies for scopes, tools, and routes. |
+
+---
+
+### 🧠 Governance Layer
+
+| Package | Status | Description |
+|----------|---------|-------------|
+| **ai-observability-gateway** | 🧭 *Roadmap* | Structured telemetry, metrics, and logs for model usage. |
+| **ai-audit-gateway** | 🧭 *Roadmap* | Immutable audit trail of user and agent activity. |
+| **ai-rate-limit-gateway** | 🧭 *Roadmap* | Centralized quota and rate-limiting across users and tenants. |
+| **ai-cost-gateway** | 🧭 *Roadmap* | Tracks per-user or per-tenant model usage costs. |
+| **ai-routing-gateway** | 🧭 *Roadmap* | Policy-based model routing and fallback orchestration. |
+
+---
+
+> **In short:** Gatewaystack provides the foundational trust and governance primitives every agentic ecosystem needs — starting with secure, user-scoped authentication and expanding into full lifecycle governance.
+
+
+## User Authentication for AI Agents
+
+The missing OAuth layer for ChatGPT Apps & Anthropic MCP — turn AI tools into **secure, user-scoped** integrations.
+Enable ChatGPT and Claude to access **user-specific data** from your app safely.
+
+**The Problem:** AI agents can’t access user data securely. OAuth for Apps SDK / MCP is confusing or broken out-of-the-box.
+**The Solution:** A production-ready gateway that handles user auth (RS256), scopes, isolation, and optional DCR.
+
+```typescript
+// Before: Everyone sees everyone's data (🚨)
+app.get('/calendar', async (_req, res) => {
+  const events = await getAllEvents();
+  res.json(events);
+});
+
+// After: User-scoped by default (✅)
+// The gateway injects user identity; your app filters safely.
+app.get('/calendar', async (req, res) => {
+  const userId = req.headers['x-user-id'] as string;
+  const events = await getUserEvents(userId);
+  res.json(events);
+});
+```
+
+**Works with:** ChatGPT Apps SDK • Anthropic MCP • Auth0
+Drop it between your backend and ChatGPT — no SDK modification needed.
+
+Turn Apps SDK / MCP connectors into user-scoped, Auth0-secured calls to your backend or Firestore.
+Handles **RS256 JWTs**, audience/issuer checks, per-tool scopes, and optional **DCR** client promotion.
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)
+![Cloud Run](https://img.shields.io/badge/Cloud%20Run-ready-4285F4)
+![Auth0](https://img.shields.io/badge/Auth0-RS256-orange)
+[![MCP/Auth Conformance](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/OWNER/REPO/main/docs/conformance.json)](./docs/conformance.json)
+[![Parity](https://github.com/OWNER/REPO/actions/workflows/parity.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/parity.yml)
+
+> **Conformance summary**
+> Verified against Apps SDK / MCP OAuth 2.1 + RS256 flow.
+> ✅ JWT validation (iss/aud/sub/exp/nbf) • ✅ Scope allowlist / deny-by-default • ✅ Expiry handling
+> ✅ Health & protected resource endpoints
+> *Last verified: 2025-10-31 (gatewaystack v0.1.0)*
+
+**Quick links:**
+
+* ▶️ [Quickstart (10 minutes)](#2-clone--install)
+* 🔐 [Auth0 setup](#3-minimal-auth0-setup-10-minutes)
+* 🤝 [Connect to ChatGPT / Claude (MCP)](#9-proxy-mode-with-user-injection)
+* 🩺 [Health & smoke tests](#7-health--basic-smoke-tests)
+* 🛡️ [Security defaults](#18-production-checklist)
+* 🆘 [Troubleshooting](#16-troubleshooting)
+
+---
+
+### Why user-scoped access matters
+
+AI agents are powerful—yet useless without *safe* access to real data.
+The challenge: **How do you let ChatGPT read *my* calendar without exposing *everyone’s* calendar?**
+
+**Without user authentication**
+
+* ❌ Shared API keys (everyone sees everything)
+* ❌ Fails audits and compliance (SOC 2 / HIPAA)
+
+**With this gateway**
+
+* ✅ OAuth login per user (RS256)
+* ✅ Per-user isolation by default
+* ✅ Audit trails & rate limits
+* ✅ Production in minutes, not weeks
+
+---
+
+## Gatewaystack — Quickstart & Parity Guide
+
+This guide walks you through spinning up the gateway, validating parity with the original `openai-auth0-gateway`, and deploying to Cloud Run.
+
+---
+
+### 0. What You Get (Feature Surface)
+
+- ✅ **RS256 JWT Verification** via JWKS (issuer, audience, exp, nbf, sub checks)
+- ✅ **Per-tool scope enforcement** (deny-by-default; 401/403 outcomes)
+- ✅ **Protected resource endpoint** for smoke tests
+- ✅ **Proxy mode** with user injection (`X-User-Id` and/or `?userId=…`) and response post-filtering
+- ✅ **Rate limiting** (user/tenant aware)
+- ✅ **Health endpoints** (`/health`, `/health/auth0`)
+- ✅ *(Optional)* **DCR webhook** to auto-promote new OAuth clients from Auth0 logs
+- ✅ **Echo test servers** to validate proxy/header injection
+
+> The above mirrors the original **openai-auth0-gateway** contract, now refactored into modular packages:
+> `auth-*`, `policy-*`, `rate-limit-*`, `routing-*`, and `observability-*`, with the main app at `apps/gateway-server`.
+
+---
+
+### 1. Prerequisites
+
+- Node.js **20+** (or 22)
+- npm **10+** (or pnpm 9)
+- An **Auth0 tenant** (or equivalent OIDC provider issuing RS256 access tokens)
+- *(Optional)* Google Cloud SDK for Cloud Run deploys
+
+---
+### 2. Clone & Install
+
+```bash
+git clone <your-repo-url> gatewaystack
+cd gatewaystack
+
+# Install all workspaces
+npm install
+```
+
+---
+
+### 3. Minimal Auth0 Setup (≈10 minutes)
+
+#### Create an API (Auth0 Dashboard → Applications → APIs)
+
+* **Name:** `Gateway API`
+* **Identifier (Audience):** `https://gateway.local/api` *(any HTTPS URI string)*
+* **Signing algorithm:** `RS256`
+* Enable **RBAC** and **Add Permissions in the Access Token**
+
+#### Define permissions/scopes (examples)
+
+* `tool:read`
+* `tool:write`
+
+#### Create an Application
+
+Create a **Regular Web App** or **SPA** to obtain tokens during development.
+
+#### Well-Known Issuer
+
+Your issuer will be:
+
+```
+https://<TENANT>.region.auth0.com/
+```
+
+#### (Optional) Management API client (for DCR webhook)
+
+Create a **Machine-to-Machine** application with scopes:
+
+```
+read:clients update:clients read:connections update:connections read:logs
+```
+
+#### Get a dev access token
+
+* From your app’s Auth0 **Test** tab or via a quick PKCE flow.
+* Ensure the token’s **audience** matches your API identifier and includes the scopes you want to test (e.g., `tool:read`).
+
+---
+
+### 4. Configure the Gateway
+
+Copy the example env and fill in values:
+
+```bash
+cp apps/gateway-server/.env.example apps/gateway-server/.env
+```
+
+Set at minimum:
+
+```
+# === Auth ===
+AUTH_ISSUER=https://<TENANT>.auth0.com/
+AUTH_AUDIENCE=https://gateway.local/api
+AUTH_JWKS_URI=https://<TENANT>.auth0.com/.well-known/jwks.json
+AUTH_ENFORCE_ALG=RS256
+
+# === CORS (dev) ===
+CORS_ORIGIN=http://localhost:5173,http://localhost:3000
+
+# === Scopes / policy ===
+REQUIRED_SCOPES_READ=tool:read
+REQUIRED_SCOPES_WRITE=tool:write
+
+# === Rate limiting (dev defaults) ===
+RATE_LIMIT_WINDOW_MS=60000
+RATE_LIMIT_MAX=60
+
+# === Proxy mode (optional) ===
+PROXY_TARGET=http://localhost:3333   # the echo server you'll run below
+PROXY_INJECT_HEADER=X-User-Id
+PROXY_INJECT_QUERY=userId
+
+# === Observability/logging (dev) ===
+LOG_LEVEL=info
+
+# === DCR webhook (optional) ===
+WEBHOOK_SHARED_SECRET=devsecret
+AUTH0_MGMT_CLIENT_ID=...
+AUTH0_MGMT_CLIENT_SECRET=...
+AUTH0_TENANT_DOMAIN=<TENANT>.auth0.com
+```
+
+> If you keep parity with the original repo’s env names, users can drop in their existing `.env` with minimal edits.
+
+---
+
+### 5. Start the Test Backends (Echo Servers)
+
+These help prove proxy + header injection:
+
+```bash
+# Echo server that returns headers, query, and body
+npm run -w @gatewaystack/echo-server dev
+# default: http://localhost:3333
+
+---
+
+### 6. Run the Gateway (dev)
+
+```bash
+npm run -w apps/gateway-server dev
+# default: http://localhost:8080  (matches your current logs)
+
+```
+
+You should see logs indicating JWKS warmup and route registration.
+
+---
+
+### 7. Health & Basic Smoke Tests
+
+```bash
+# Health (served by healthRoutes at /health)
+curl -s http://localhost:8080/health | jq .
+
+# Auth0 checks (JWKS reachability, mgmt token if set)
+curl -s http://localhost:8080/health/auth0 | jq .
+
+# Protected resource metadata (expect 401 without token + WWW-Authenticate)
+curl -i http://localhost:8080/.well-known/oauth-protected-resource
+
+```
+
+**Expected:**
+
+* `/health` → `{ ok: true, ... }`
+* `/health/auth0` → issuer/audience OK, JWKS reachable
+* Protected resource → **401** w/o token, **200** w/ token
+
+---
+
+### 8. Scope/RBAC Checks (Parity)
+
+> 💡 **Tip:** You'll need two different Auth0 tokens to see the scope-based 403 in action.  
+> - `$READER` → a token minted with only `tool:read`  
+> - `$WRITER` → a token minted with both `tool:read tool:write`  
+> If you reuse the same token for both, you'll get `200 OK` on every call.
+
+
+```bash
+# Endpoint that requires read scope
+curl -i \
+  -H "Authorization: Bearer $READER" \
+  -H "X-Required-Scope: tool:read" \
+  http://localhost:8080/__test__/echo
+
+# Endpoint that requires write scope (should fail for Reader)
+curl -i -X POST \
+  -H "Authorization: Bearer $READER" \
+  -H "X-Required-Scope: tool:write" \
+  http://localhost:8080/__test__/echo
+# expect 403
+
+# Same endpoint with Writer (should succeed)
+curl -i -X POST \
+  -H "Authorization: Bearer $WRITER" \
+  -H "Content-Type: application/json" \
+  -H "X-Required-Scope: tool:write" \
+  --data '{"msg":"hello"}' \
+  http://localhost:8080/__test__/echo
+# expect 200 + echo body
+```
+
+> `__test__/echo` is provided by `apps/gateway-server/src/routes/testEcho.ts`. Adjust if you renamed it; any protected route will do.
+
+---
+
+### 9. Proxy Mode with User Injection
+
+Hit a proxied path that forwards to the echo server:
+
+```bash
+# Without token: expect 401 (gateway blocks; backend never sees request)
+curl -i http://localhost:8787/proxy/echo
+
+# With token (READER or WRITER): expect 200 and the echo payload
+curl -s -H "Authorization: Bearer $READER" \
+  http://localhost:8787/proxy/echo?foo=bar | jq .
+```
+
+**Confirm in the echo response:**
+
+* `headers["x-user-id"] === <sub from token>` (or whatever you set via `PROXY_INJECT_HEADER`)
+* `query.userId === <sub>` if `PROXY_INJECT_QUERY=userId` is configured
+* Your original `foo=bar` query remains intact
+
+---
+
+### 10. Rate Limiting (Quick Verification)
+
+```bash
+export RATE_LIMIT_MAX=5
+for i in {1..20}; do
+  curl -s -o /dev/null -w "%{http_code}\n" \
+    -H "Authorization: Bearer $READER" \
+    "http://127.0.0.1:8080/protected/ping" &
+done; wait | sort | uniq -c
+
+```
+
+You should see **429** responses once the `RATE_LIMIT_MAX` per window is exceeded.
+
+---
+
+### Deploys & Admin UI
+
+Minimal local flow is covered here. Opinionated deploy guides (Cloud Run, Render, etc.) and the optional Admin UI will live in /docs soon. For now, any Node/Express deploy that forwards your env vars will work.
+
+---
+
+### 12. Conformance Tests (Scripted)
+
+A tiny parity harness is included at `apps/gateway-server/tests/basic.test.ts` (and `tests/basic.test.js` for JS). You can run:
+
+```bash
+# Dev
+npm test -w apps/gateway-server
+# Or run a specific parity script if provided
+```
+
+If you prefer a domain-to-domain comparison (old vs new), drop in a simple script like `tests/compat/basic.test.ts` that calls the same endpoints on two base URLs and asserts identical statuses/JSON shape. *(Ask if you want a prebuilt template.)*
+
+---
+
+### 13. DCR Webhook (Optional)
+
+If you want the same DCR “promotion” flow as the original:
+
+**Auth0 → Monitoring → Streams → Webhook**
+
+```
+POST https://<your-gateway-domain>/webhooks/auth0/logs
+X-Webhook-Secret: <WEBHOOK_SHARED_SECRET>
+```
+
+In your `.env`, set the Management API client creds & `WEBHOOK_SHARED_SECRET`.
+
+Trigger a client registration event (or simulate via Auth0 log events).
+
+Check `/health/auth0` — you should see a **recent webhook last-seen** timestamp and successful management calls in your logs.
+
+---
+
+### 14. Troubleshooting
+
+**401 with valid token**
+
+* Check `AUTH_AUDIENCE` matches the token `aud`
+* Check `AUTH_ISSUER` matches token `iss` and the JWKS URL resolves
+* Ensure **RS256** is used; HS256 will be rejected when `AUTH_ENFORCE_ALG=RS256=true`
+
+**403 on write**
+
+* Your token likely lacks `tool:write`; confirm “Add Permissions in the Access Token” is enabled on the API
+
+**Proxy not injecting user**
+
+* Verify `PROXY_TARGET` is reachable
+* Confirm `PROXY_INJECT_HEADER` / `PROXY_INJECT_QUERY` are set and your route is going through the proxy handler
+
+**Rate limit never triggers**
+
+* Lower `RATE_LIMIT_MAX` and ensure identifier (user/tenant) is parsed from the token’s `sub` / `org_id`
+
+---
+
+### 15. What’s Different vs the Original?
+
+Code is modularized into packages:
+
+* `auth-*` (JWT/JWKS and claims validation)
+* `policy-*` (scope & RBAC)
+* `routing-*` (proxy, header/query injection)
+* `rate-limit-*` (counters & windows)
+* `observability-*` (structured logs / metrics)
+
+The runtime behavior and endpoints above preserve the original contract so existing users can run the gateway as a **standalone**.
+
+---
+
+### 16. Production Checklist
+
+* ✅ RS256 enforced; JWKS timeout & caching tuned
+* ✅ Strict CORS (exact origins)
+* ✅ Deny-by-default policies per route/tool
+* ✅ Rate-limit per user/tenant with sane ceilings
+* ✅ Logs redact PII; audit fields: `{sub, tool, path, decision, latency}`
+* ✅ Health probes hooked into your orchestrator
+* ✅ *(Optional)* DCR webhook secret rotated; Mgmt API scopes minimal

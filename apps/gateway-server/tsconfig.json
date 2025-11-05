@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "outDir": "dist",
+    "rootDir": "src",
+    "module": "ES2022",
+    "target": "ES2022",
+    "moduleResolution": "Bundler",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "baseUrl": "../../",
+    "paths": {
+      "@gatewaystack/*": ["packages/*/src", "packages/*"]
+    }
+  },
+  "include": ["src"],
+  "references": [
+    { "path": "../../packages/access-core" },
+    { "path": "../../packages/access-express" },
+    { "path": "../../packages/observability-core" },
+    { "path": "../../packages/observability-express" },
+    { "path": "../../packages/routing-core" },
+    { "path": "../../packages/routing-express" },
+    { "path": "../../packages/audit-core" },
+    { "path": "../../packages/audit-express" },
+    { "path": "../../packages/auth-core" },
+    { "path": "../../packages/auth-express" },
+    { "path": "../../packages/rate-limit-core" },
+    { "path": "../../packages/rate-limit-express" }
+  ]
+}

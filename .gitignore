@@ -1,0 +1,51 @@
+# Environment files
+.env
+*.env
+.env.*        # e.g. .env.local, .env.dev, etc.
+!env.example  # keep safe template version
+
+# Node / TypeScript
+node_modules/
+dist/
+build/
+coverage/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+.DS_Store
+
+# IDEs / editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Local runtime artifacts
+tmp/
+logs/
+.cache/
+.envrc
+.envrc.local
+
+# Docker / Cloud artifacts
+*.pid
+*.seed
+*.bak
+*.tar
+*.zip
+*.tgz
+
+# Firebase / GCP / AWS credentials
+firebase.json
+.serviceAccountKey.json
+credentials.json
+gcloud-service-key.json
+aws-credentials
+*.pem
+*.key
+*.crt

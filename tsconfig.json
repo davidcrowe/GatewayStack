@@ -1,0 +1,38 @@
+{
+  "files": [],
+  "references": [
+    { "path": "apps/gateway-server" },
+    { "path": "apps/admin-ui" },
+
+    { "path": "packages/access-core" },
+    { "path": "packages/access-express" },
+    { "path": "packages/observability-core" },
+    { "path": "packages/observability-express" },
+    { "path": "packages/routing-core" },
+    { "path": "packages/routing-express" },
+    { "path": "packages/audit-core" },
+    { "path": "packages/audit-express" },
+    { "path": "packages/auth-core" },
+    { "path": "packages/auth-express" },
+    { "path": "packages/rate-limit-core" },
+    { "path": "packages/rate-limit-express" }
+  ],
+  "compilerOptions": {
+    "composite": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@gatewaystack/access-core": ["packages/access-core/src"],
+      "@gatewaystack/access-express": ["packages/access-express/src"],
+      "@gatewaystack/routing-core": ["packages/routing-core/src"],
+      "@gatewaystack/routing-express": ["packages/routing-express/src"],
+      "@gatewaystack/policy-core": ["packages/policy-core/src"],
+      "@gatewaystack/rate-limit-core": ["packages/rate-limit-core/src"],
+      "@gatewaystack/rate-limit-express": ["packages/rate-limit-express/src"],
+      "@gatewaystack/observability-express": ["packages/observability-express/src"],
+      "@gatewaystack/audit-core": ["packages/audit-core/src"],
+      "@gatewaystack/audit-express": ["packages/audit-express/src"]
+    }
+  },
+  "exclude": ["**/*.config.ts", "**/*.config.js", "node_modules", "dist"]
+}

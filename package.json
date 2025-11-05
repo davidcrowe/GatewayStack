@@ -1,0 +1,39 @@
+{
+  "name": "gatewaystack",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "npm@10.8.2",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "tools/*"
+  ],
+  "scripts": {
+    "bootstrap": "npm i",
+    "clean": "git clean -fdX **/dist || true",
+    "build": "tsc -b",
+    "dev:server": "npm --workspace apps/gateway-server run dev",
+    "dev:admin": "npm --workspace apps/admin-ui run dev",
+    "dev": "npm run dev:server",
+    "build:server": "npm --workspace apps/gateway-server run build",
+    "build:admin": "npm --workspace apps/admin-ui run build",
+    "start:server": "npm --workspace apps/gateway-server run start",
+    "start:admin": "npm --workspace apps/admin-ui run preview",
+    "test": "vitest run --reporter=verbose && npm run conformance:report",
+    "test:watch": "vitest",
+    "conformance:report": "tsx packages/audit/report/saveReport.ts"
+  },
+  "devDependencies": {
+    "@types/express-rate-limit": "^5.1.3",
+    "@types/node": "^22.7.5",
+    "@types/supertest": "^2.0.16",
+    "supertest": "^7.1.4",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.9"
+  },
+  "dependencies": {
+    "express-rate-limit": "^8.2.1"
+  }
+}
