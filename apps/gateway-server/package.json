@@ -1,5 +1,6 @@
 {
-  "name": "gateway-server",
+  "name": "@gatewaystack/gateway-server",
+  "version": "0.0.1",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -15,6 +16,7 @@
     "node-fetch": "^3.3.2"
   },
   "devDependencies": {
-    "@types/express": "^5.0.5"
+    "@types/express": "^5.0.5",
+    "tsx": "^4.19.2"
   }
 }

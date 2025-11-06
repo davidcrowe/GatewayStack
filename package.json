@@ -4,11 +4,7 @@
   "private": true,
   "type": "module",
   "packageManager": "npm@10.8.2",
-  "workspaces": [
-    "apps/*",
-    "packages/*",
-    "tools/*"
-  ],
+  "workspaces": ["apps/*", "packages/*", "tools/*", "demos/*"],
   "scripts": {
     "bootstrap": "npm i",
     "clean": "git clean -fdX **/dist || true",
@@ -22,7 +18,12 @@
     "start:admin": "npm --workspace apps/admin-ui run preview",
     "test": "vitest run --reporter=verbose && npm run conformance:report",
     "test:watch": "vitest",
-    "conformance:report": "tsx packages/audit/report/saveReport.ts"
+    "conformance:report": "tsx packages/audit/report/saveReport.ts",
+    "demo:mcp": "npm-run-all -p demo:issuer demo:gateway demo:mcp-server",
+    "demo:issuer": "npm run -w @gatewaystack/demo-mcp-server dev",
+    "demo:mcp-server": "npm run -w @gatewaystack/demo-mcp-server dev",
+    "demo:gateway": "npm run -w apps/gateway-server dev",
+    "demo:apps": "npm run -w @gatewaystack/demo-chatgpt-connector dev"
   },
   "devDependencies": {
     "@types/express-rate-limit": "^5.1.3",
@@ -31,7 +32,8 @@
     "supertest": "^7.1.4",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",
-    "vitest": "^2.1.9"
+    "vitest": "^2.1.9",
+    "npm-run-all": "^4.1.5"
   },
   "dependencies": {
     "express-rate-limit": "^8.2.1"

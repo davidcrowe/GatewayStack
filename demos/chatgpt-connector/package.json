@@ -1,0 +1,14 @@
+{
+  "name": "@gatewaystack/demo-chatgpt-connector",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "body-parser": "^1.20.3",
+    "node-fetch": "^3.3.2",
+    "tsx": "^4.16.0"
+  }
+}

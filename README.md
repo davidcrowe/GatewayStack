@@ -361,7 +361,7 @@ Minimal local flow is covered here. Opinionated deploy guides (Cloud Run, Render
 
 ---
 
-### 12. Conformance Tests (Scripted)
+### 11. Conformance Tests (Scripted)
 
 A tiny parity harness is included at `apps/gateway-server/tests/basic.test.ts` (and `tests/basic.test.js` for JS). You can run:
 
@@ -375,7 +375,7 @@ If you prefer a domain-to-domain comparison (old vs new), drop in a simple scrip
 
 ---
 
-### 13. DCR Webhook (Optional)
+### 12. DCR Webhook (Optional)
 
 If you want the same DCR “promotion” flow as the original:
 
@@ -394,7 +394,7 @@ Check `/health/auth0` — you should see a **recent webhook last-seen** timestam
 
 ---
 
-### 14. Troubleshooting
+### 13. Troubleshooting
 
 **401 with valid token**
 
@@ -417,7 +417,7 @@ Check `/health/auth0` — you should see a **recent webhook last-seen** timestam
 
 ---
 
-### 15. What’s Different vs the Original?
+### 14. What’s Different vs the Original?
 
 Code is modularized into packages:
 
@@ -431,7 +431,7 @@ The runtime behavior and endpoints above preserve the original contract so exist
 
 ---
 
-### 16. Production Checklist
+### 15. Production Checklist
 
 * ✅ RS256 enforced; JWKS timeout & caching tuned
 * ✅ Strict CORS (exact origins)
@@ -440,3 +440,89 @@ The runtime behavior and endpoints above preserve the original contract so exist
 * ✅ Logs redact PII; audit fields: `{sub, tool, path, decision, latency}`
 * ✅ Health probes hooked into your orchestrator
 * ✅ *(Optional)* DCR webhook secret rotated; Mgmt API scopes minimal
+
+
+
+
+## 🧩 MCP Quick Connect (OAuth 2.1, User-Scoped)
+
+If you’re using this gateway as an **MCP server** (e.g. Claude Desktop, Cursor, etc.), no code changes are required.
+The gateway is **auth-initiator agnostic** — it simply validates RS256 tokens and enforces scopes, regardless of who started the OAuth flow.
+
+---
+
+### 1️⃣ Return 401 with Protected Resource Metadata (PRM) pointer
+
+```http
+HTTP/1.1 401 Unauthorized
+WWW-Authenticate: Bearer realm="mcp", resource_metadata="https://<YOUR_GATEWAY>/.well-known/oauth-protected-resource"
+Content-Type: application/json
+
+{"error":"unauthorized","error_description":"Access token required"}
+```
+
+> The PRM URL tells the MCP client where to discover OAuth configuration for this resource.
+
+---
+
+### 2️⃣ Protected Resource Metadata (PRM) Example
+
+Serve this JSON at `/.well-known/oauth-protected-resource`:
+
+```json
+{
+  "resource": "https://<YOUR_GATEWAY>/mcp",
+  "authorization_servers": ["https://<YOUR_AUTH_SERVER>/"],
+  "scopes_supported": ["tool:read", "tool:write"]
+}
+```
+
+| **Field**               | **Description**                           |
+| ----------------------- | ----------------------------------------- |
+| `resource`              | Identifier for this gateway’s MCP surface |
+| `authorization_servers` | OAuth / OIDC issuer (e.g. Auth0, Okta)    |
+| `scopes_supported`      | Scopes mapped to your route allowlist     |
+
+---
+
+### 3️⃣ Scopes → Routes (deny-by-default)
+
+| **Scope**    | **Routes**         |
+| ------------ | ------------------ |
+| `tool:read`  | `GET /v1/tools/*`  |
+| `tool:write` | `POST /v1/tools/*` |
+
+Requests with a valid token but missing scope will receive **403 Forbidden**.
+
+---
+
+### 4️⃣ Redirect URIs (common MCP clients)
+
+Register your client with the IdP and allow its redirect URI(s):
+
+* **Claude Desktop/Web:** documented callback (e.g. `https://claude.ai/api/mcp/auth_callback`)
+* **Cursor IDE:** their documented OAuth callback
+
+If your IdP supports **Dynamic Client Registration (DCR)**, you can enable it instead of pre-registering.
+
+---
+
+### 5️⃣ Smoke Test
+
+| **Case**               | **Command**                                                                    | **Expected**                                                 |
+| ---------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| **No token**           | `curl -i https://<YOUR_GATEWAY>/protected`                                     | `401 Unauthorized` with `WWW-Authenticate` header + PRM link |
+| **Valid token**        | `curl -i -H "Authorization: Bearer $TOKEN" https://<YOUR_GATEWAY>/protected`   | `200 OK` if `scope=tool:read`                                |
+| **Insufficient scope** | `curl -i -H "Authorization: Bearer $TOKEN" https://<YOUR_GATEWAY>/writer-only` | `403 Forbidden`                                              |
+
+---
+
+### ⚙️ Implementation Notes
+
+* Always validate `iss`, **pin `aud`**, enforce `alg = RS256`, and honor `exp`/`nbf`.
+* Keep tokens **short-lived**; rotate/revoke via your IdP.
+* Use gateway **identity injection** (e.g. `X-User-Id`) to pass user context downstream — never expose upstream API keys to the LLM client.
+
+---
+
+✅ With this section added, developers reading your README will immediately recognize how to connect an MCP client to your gateway and verify user-scoped OAuth behavior end-to-end.
