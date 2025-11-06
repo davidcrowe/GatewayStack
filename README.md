@@ -106,7 +106,7 @@ Minimal MCP server on :5051/mcp/
 
 Follow demos/mcp-server/README.md for curl commands and expected 200/403/401 outcomes.
 
-###ChatGPT Apps SDK
+### ChatGPT Apps SDK
 ```bash
 npm run demo:apps
 ```
@@ -132,6 +132,7 @@ Follow demos/chatgpt-connector/README.md to verify read/write behavior with scop
     "demo:apps-server": "npm run -w @gatewaystack/demo-chatgpt-connector dev"
   }
 }
+```
 
 --- 
 
