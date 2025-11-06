@@ -88,6 +88,53 @@ Handles **RS256 JWTs**, audience/issuer checks, per-tool scopes, and optional **
 
 ---
 
+## Demos
+
+Spin up reference demos that validate user-scoped OAuth end-to-end.
+
+### MCP (Claude / IDEs)
+```bash
+npm run demo:mcp
+```
+This runs:
+
+Issuer/PRM/JWKS on :5051
+
+Gateway in demo mode on :8080
+
+Minimal MCP server on :5051/mcp/
+
+Follow demos/mcp-server/README.md for curl commands and expected 200/403/401 outcomes.
+
+###ChatGPT Apps SDK
+```bash
+npm run demo:apps
+```
+
+This runs:
+
+Issuer/PRM/JWKS on :5051
+
+Gateway in demo mode on :8080
+
+Apps SDK connector on :5052/apps/
+
+Follow demos/chatgpt-connector/README.md to verify read/write behavior with scopes.
+
+```json
+{
+  "scripts": {
+    "demo:mcp": "npm-run-all -p demo:issuer demo:gateway demo:mcp-server",
+    "demo:apps": "npm-run-all -p demo:issuer demo:gateway demo:apps-server",
+    "demo:issuer": "npm run -w @gatewaystack/demo-mcp-server dev",
+    "demo:gateway": "DEMO_MODE=true npm run -w @gatewaystack/gateway-server dev",
+    "demo:mcp-server": "npm run -w @gatewaystack/demo-mcp-server dev",
+    "demo:apps-server": "npm run -w @gatewaystack/demo-chatgpt-connector dev"
+  }
+}
+
+--- 
+
 ### Why user-scoped access matters
 
 AI agents are powerful—yet useless without *safe* access to real data.
