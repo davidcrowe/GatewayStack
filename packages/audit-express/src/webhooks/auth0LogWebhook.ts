@@ -15,6 +15,13 @@ const MGMT_CLIENT_SECRET = process.env.MGMT_CLIENT_SECRET!;
 const LOG_WEBHOOK_SECRET = process.env.LOG_WEBHOOK_SECRET || "dev-change-me";
 const GOOGLE_CONNECTION_NAME = process.env.GOOGLE_CONNECTION_NAME || "google-oauth2";
 
+// Optional: used to create a client grant with all tool scopes
+const OAUTH_AUDIENCE = process.env.OAUTH_AUDIENCE;
+const TOOL_SCOPES = (process.env.TOOL_SCOPES || process.env.REQUIRED_SCOPES || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
 type OAuthTokenRes = { access_token: string; token_type?: string; expires_in?: number };
 
 async function getMgmtToken(): Promise<string> {
@@ -76,6 +83,36 @@ async function enableGoogleForClient(mgmtToken: string, clientId: string) {
     const txt = await rp.text();
     throw new Error(`conn_patch_http_${rp.status}:${txt}`);
   }
+}
+
+async function ensureClientGrant(
+  mgmtToken: string,
+  clientId: string,
+  audience?: string,
+  scopes: string[] = []
+) {
+  const aud = (audience || "").trim();
+  if (!aud || !scopes.length) return;
+
+  const r = await fetch(`https://${MGMT_DOMAIN}/api/v2/client-grants`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${mgmtToken}`
+    },
+    body: JSON.stringify({
+      client_id: clientId,
+      audience: aud,
+      scope: scopes
+    })
+  } as any);
+
+  if (!r.ok) {
+    const txt = await r.text();
+    throw new Error(`client_grant_http_${r.status}:${txt}`);
+  }
+
+  console.log("[dcr] created client grant", { clientId, audience: aud, scopes });
 }
 
 // ---- log helpers ----
@@ -143,8 +180,21 @@ function extractClientIdFromDcrRaw(ev: any): string | null {
 // ---- handler ----
 async function handleAuth0LogWebhook(req: Request, res: Response) {
   // Shared-secret auth
+  // const auth = req.header("authorization") || "";
+  // if (auth !== `Bearer ${LOG_WEBHOOK_SECRET}`) {
+  //   res.status(401).json({ ok: false, error: "unauthorized" });
+  //   return;
+  // }
+
+  // Shared-secret auth (supports either Authorization or X-Webhook-Secret)
   const auth = req.header("authorization") || "";
-  if (auth !== `Bearer ${LOG_WEBHOOK_SECRET}`) {
+  const xSecret = req.header("x-webhook-secret") || "";
+
+  const ok =
+    auth === `Bearer ${LOG_WEBHOOK_SECRET}` ||
+    xSecret === LOG_WEBHOOK_SECRET;
+
+  if (!ok) {
     res.status(401).json({ ok: false, error: "unauthorized" });
     return;
   }
@@ -222,8 +272,19 @@ async function handleAuth0LogWebhook(req: Request, res: Response) {
         }
       }
 
-      await enableGoogleForClient(mgmtToken, cid);
-      console.log("[dcr] promoted+enabled", { client_id: cid });
+    //   await enableGoogleForClient(mgmtToken, cid);
+    //   console.log("[dcr] promoted+enabled", { client_id: cid });
+    // }
+
+    // res.status(200).json({ ok: true, promoted: dcrEvents.length });
+
+    await enableGoogleForClient(mgmtToken, cid);
+      await ensureClientGrant(mgmtToken, cid, OAUTH_AUDIENCE, TOOL_SCOPES);
+      console.log("[dcr] promoted+enabled+granted", {
+        client_id: cid,
+        audience: OAUTH_AUDIENCE,
+        scopes: TOOL_SCOPES
+      });
     }
 
     res.status(200).json({ ok: true, promoted: dcrEvents.length });
@@ -235,8 +296,12 @@ async function handleAuth0LogWebhook(req: Request, res: Response) {
 
 /**
  * Router factory.
- * Mount in your server with: `app.use("/webhooks", auth0LogsWebhook());`
- * Endpoint becomes: POST /webhooks/auth0-log-webhook
+ * Mount in your server with: `app.use(auth0LogsWebhook());`
+ * Endpoint becomes: POST /auth0-log-webhook
+ *
+ * If you prefer a prefix (e.g. /webhooks), mount as:
+ *   app.use("/webhooks", auth0LogsWebhook());
+ * Then the endpoint is POST /webhooks/auth0-log-webhook.
  */
 export function auth0LogsWebhook() {
   const r = express.Router();

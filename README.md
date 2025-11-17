@@ -71,20 +71,24 @@ Handles **RS256 JWTs**, audience/issuer checks, per-tool scopes, and optional **
 [![MCP/Auth Conformance](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/OWNER/REPO/main/docs/conformance.json)](./docs/conformance.json)
 [![Parity](https://github.com/OWNER/REPO/actions/workflows/parity.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/parity.yml)
 
-> **Conformance summary**
-> Verified against Apps SDK / MCP OAuth 2.1 + RS256 flow.
-> ✅ JWT validation (iss/aud/sub/exp/nbf) • ✅ Scope allowlist / deny-by-default • ✅ Expiry handling
-> ✅ Health & protected resource endpoints
-> *Last verified: 2025-10-31 (gatewaystack v0.1.0)*
+> **Conformance summary**  
+> Verified against Apps SDK / MCP OAuth 2.1 + RS256 flow.  
+> - ✅ JWT validation (iss/aud/sub/exp/nbf)  
+> - ✅ Scope allowlist / deny-by-default  
+> - ✅ Expiry handling  
+> - ✅ Health & protected resource endpoints  
+> - *Last verified: 2025-10-31 (gatewaystack v0.1.0)*
 
 **Quick links:**
 
 * ▶️ [Quickstart (10 minutes)](#2-clone--install)
 * 🔐 [Auth0 setup](#3-minimal-auth0-setup-10-minutes)
+* 🧩 [Auth0 Post-Login Action for ChatGPT](#31-auth0-post-login-action-for-chatgpt-connectors)
+* 📡 [Auth0 DCR / log stream helper](#12-dcr-webhook-optional)
 * 🤝 [Connect to ChatGPT / Claude (MCP)](#9-proxy-mode-with-user-injection)
-* 🩺 [Health & smoke tests](#7-health--basic-smoke-tests)
+* 🩺 [Health & protected-resource metadata](#7-health--basic-smoke-tests)
 * 🛡️ [Security defaults](#18-production-checklist)
-* 🆘 [Troubleshooting](#16-troubleshooting)
+* 🆘 [Troubleshooting](#13-troubleshooting)
 
 ---
 
@@ -97,14 +101,11 @@ Spin up reference demos that validate user-scoped OAuth end-to-end.
 npm run demo:mcp
 ```
 This runs:
+- Issuer/PRM/JWKS on `:5051`
+- Gateway in demo mode on `:8080`
+- Minimal MCP server on `:5051/mcp/`
 
-Issuer/PRM/JWKS on :5051
-
-Gateway in demo mode on :8080
-
-Minimal MCP server on :5051/mcp/
-
-Follow demos/mcp-server/README.md for curl commands and expected 200/403/401 outcomes.
+See `demos/mcp-server/README.md` for curl commands and expected 200/403/401 outcomes.
 
 ### ChatGPT Apps SDK
 ```bash
@@ -112,14 +113,11 @@ npm run demo:apps
 ```
 
 This runs:
+- Issuer/PRM/JWKS on `:5051`
+- Gateway in demo mode on `:8080`
+- Apps SDK connector on `:5052/apps/`
 
-Issuer/PRM/JWKS on :5051
-
-Gateway in demo mode on :8080
-
-Apps SDK connector on :5052/apps/
-
-Follow demos/chatgpt-connector/README.md to verify read/write behavior with scopes.
+See `demos/chatgpt-connector/README.md` to verify read/write behavior with scopes.
 
 ```json
 {
@@ -238,6 +236,30 @@ read:clients update:clients read:connections update:connections read:logs
 
 ---
 
+### 3.1 Auth0 Post-Login Action for ChatGPT connectors
+
+> **Only required if you are using ChatGPT Apps SDK.**  
+> If you’re only using the gateway with your own OAuth client or MCP, you can skip this section.
+
+If you are using this gateway with **ChatGPT Apps SDK**, you must add a Post-Login Action so that:
+
+- The access token audience (`aud`) is forced to your API Identifier.
+- The token is issued as an **RS256 JWS** (3-part JWT), not an encrypted JWE or opaque token.
+- All scopes required by your tools are present on the token.
+
+High-level steps:
+
+1) Go to **Actions → Library → + Create Action** and name it `auto-assign-openai-connector-role`.  
+2) Choose **Trigger:** Login / Post Login.  
+3) Paste the code from `docs/auth0/chatgpt-post-login-action.js`.  
+4) Add secrets:  
+   - `API_AUDIENCE` → your Auth0 API Identifier (e.g., `https://inner.app/api`)  
+   - `CONNECTOR_ROLE_ID` → (optional) Role ID to auto-assign to connector users  
+5) Click **Deploy**.  
+6) Attach it to the flow: **Actions → Flows → Login (Post Login)**, drag the Action between **Start** and **Complete**, then click **Apply**.
+
+For a full walkthrough, screenshots, and troubleshooting checklist, see `docs/auth0/chatgpt-post-login-action.md`.
+
 ### 4. Configure the Gateway
 
 Copy the example env and fill in values:
@@ -293,6 +315,7 @@ These help prove proxy + header injection:
 # Echo server that returns headers, query, and body
 npm run -w @gatewaystack/echo-server dev
 # default: http://localhost:3333
+```
 
 ---
 
@@ -319,8 +342,38 @@ curl -s http://localhost:8080/health/auth0 | jq .
 
 # Protected resource metadata (expect 401 without token + WWW-Authenticate)
 curl -i http://localhost:8080/.well-known/oauth-protected-resource
-
 ```
+
+When called **without** a token, you should see a `401` with a `WWW-Authenticate` header that points ChatGPT / MCP to this URL as the **Protected Resource Metadata (PRM)** endpoint.
+
+When called **with** a valid token, you should see JSON similar to:
+
+```json
+{
+  "authorization_servers": ["https://<TENANT>.auth0.com/"],
+  "scopes_supported": [
+    "openid",
+    "email",
+    "profile",
+    "tool:read",
+    "tool:write"
+  ],
+  "resource": "https://gateway.local/api"
+}
+```
+
+Where:
+
+- `authorization_servers` tells the client which issuer(s) can mint access tokens.
+- `scopes_supported` is derived from your configured tool scopes (`TOOL_SCOPES` → `REQUIRED_SCOPES` in the gateway).
+- `resource` is your API Identifier / audience (`AUTH_AUDIENCE` / `OAUTH_AUDIENCE`).
+
+When you add a new tool scope in `TOOL_SCOPES`, the gateway automatically:
+
+- Updates `REQUIRED_SCOPES`
+- Exposes it in `scopes_supported`
+- Includes it in the `scope=` parameter of the `WWW-Authenticate` header
+- Ensures the client grant includes the new scope (if using the Auth0 DCR helper)
 
 **Expected:**
 
@@ -425,6 +478,16 @@ If you prefer a domain-to-domain comparison (old vs new), drop in a simple scrip
 
 ### 12. DCR Webhook (Optional)
 
+> **When to use this:** If you want new ChatGPT connectors to **auto-register** in Auth0 and immediately gain access to your API with the correct grant types, Google connection, and scopes, enable the DCR webhook.
+
+This endpoint is typically wired as an Auth0 **Log Stream** target that listens for `/oidc/register` events (Dynamic Client Registration) and then:
+
+- Promotes the new client to a public `regular_web` app with PKCE.
+- Enables the `google-oauth2` connection for that client.
+- Ensures a client grant exists for your API (`AUTH_AUDIENCE`) with all `REQUIRED_SCOPES`.
+
+For a detailed walkthrough and environment variable reference (`MGMT_DOMAIN`, `MGMT_CLIENT_ID`, `MGMT_CLIENT_SECRET`, `LOG_WEBHOOK_SECRET`, `GOOGLE_CONNECTION_NAME`, `OAUTH_AUDIENCE`), see `docs/auth0/dcr-log-webhook.md`.
+
 If you want the same DCR “promotion” flow as the original:
 
 **Auth0 → Monitoring → Streams → Webhook**
@@ -443,6 +506,8 @@ Check `/health/auth0` — you should see a **recent webhook last-seen** timestam
 ---
 
 ### 13. Troubleshooting
+
+> **Using Auth0 + ChatGPT?** For Auth0-specific issues (Post-Login Actions, JWE vs JWS tokens, scopes not showing up, etc.), see `docs/auth0/chatgpt-post-login-action.md` → “Troubleshooting checklist”.
 
 **401 with valid token**
 
@@ -488,8 +553,6 @@ The runtime behavior and endpoints above preserve the original contract so exist
 * ✅ Logs redact PII; audit fields: `{sub, tool, path, decision, latency}`
 * ✅ Health probes hooked into your orchestrator
 * ✅ *(Optional)* DCR webhook secret rotated; Mgmt API scopes minimal
-
-
 
 
 ## 🧩 MCP Quick Connect (OAuth 2.1, User-Scoped)
