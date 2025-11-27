@@ -2,17 +2,22 @@
 
 An open-source control plane that makes AI agents **enterprise-ready** by enforcing user-scoped identity, policy, and audit trails on every model call.
 
-**The problem:** AI models and user data need each other... but can't safely connect. Users want AI to access *their* data (ChatGPT reading *my* calendar). Enterprises want to control *who* can use AI models (only doctors can use medical models, only employees can send sensitive prompts). Both require **cryptographic proof of user identity** tied to every AI request... but AI platforms authenticate users on their side while your backend has no verified identity to enforce policies, filter data, or log actions.
+**The problem:** 
+AI models and user data need each other... but can't safely connect. 
 
-**Gatewaystack solves this.** Drop it between AI clients (ChatGPT, Claude, MCP) and your backend. It validates OAuth tokens, enforces scopes, and injects verified identity—so you can safely answer the two questions that matter most:
+- Users want AI to access *their* data (ChatGPT reading *my* calendar). 
+- Enterprises want to control *who* can use AI models (only doctors can use medical models, only employees can send sensitive prompts). 
+
+Both require **cryptographic proof of user identity** tied to every AI request... but AI platforms authenticate users on their side while your backend has no verified identity to enforce policies, filter data, or log actions.
+
+**Gatewaystack solves this.** 
+Drop it between AI clients (ChatGPT, Claude, MCP) and your backend. It validates OAuth tokens, enforces scopes, and injects verified identity—so you can safely answer the two questions that matter most:
 
 1. **Who** did what, with **which** data, via **which** model?
 2. Was it **authorized**, **bounded**, and **logged** under policy?
 
 Every AI request flows through six governance checkpoints:
 > **Identified → Transformed → Validated → Constrained → Routed → Audited**
-
----
 
 ### The Three-Party Problem
 
@@ -39,8 +44,6 @@ This instability across user ↔ LLM ↔ backend is what Gatewaystack calls the 
 
 It shows up in two directions:
 
----
-
 ### Direction 1: Users accessing their own data via AI
 *"How do I let ChatGPT read **my** calendar without exposing **everyone's** calendar?"*
 
@@ -62,8 +65,6 @@ app.get('/calendar', async (req, res) => {
 ```
 
 The gateway validates the OAuth token, extracts the user identity, and injects `X-User-Id` — so your backend can safely filter data per-user.
-
----
 
 ### Direction 2: Enterprises controlling who can use which models and tools
 *"How do I ensure only **licensed doctors** use medical models, only **analysts** access financial data, and **contractors** can't send sensitive prompts?"*
@@ -109,8 +110,6 @@ app.post('/chat', async (req, res) => {
 
 The gateway enforces role + scope checks **before** forwarding to your backend. If a nurse tries to use `gpt-4-medical`, they get `403 Forbidden`.
 
----
-
 ### Why Both Directions Matter
 
 **Without solving the Three-Party Problem, you can't:**
@@ -130,8 +129,6 @@ The gateway enforces role + scope checks **before** forwarding to your backend. 
 * ✅ Drop-in between AI clients and your backend (no SDK changes)
 
 Gatewaystack is composed of modular packages that can run **standalone** or as a cohesive **six-layer pipeline** for complete AI governance.
-
----
 
 ## Repository layout
 
@@ -189,8 +186,6 @@ Toggles worth noting:
 
 `npm run dev:admin` launches a tiny Vite/React panel (`apps/admin-ui/src/App.tsx`) that fetches `/health` and renders the JSON so you can keep gateway status visible while iterating.
 
----
-
 ### Core governance layers
 
 Every request flows through the same six-layer composable pipeline:
@@ -204,19 +199,11 @@ Every request flows through the same six-layer composable pipeline:
 | **proxyabl**     | 🧩     | **Execution Control & Identity-Aware Routing** — routes calls to the right tool/model backend, injects verified identity, and presents OAuth/PRM metadata. |
 | **explicabl**    | ⚪     | **Accountability & Runtime Audit** — emits immutable, correlated events to your SIEM/observability stack and exposes health/conformance endpoints. |
 
----
-
 > **🔓 Works with Any Identity Provider**  
 > Gatewaystack is IdP-agnostic. It works with any OAuth 2.1 / OIDC provider that issues RS256 JWTs: Auth0, Okta, Entra ID (Azure AD), Keycloak, Google OAuth, or custom implementations.  
 > Auth0 examples are provided for quick setup—the same patterns apply to all providers. See [Identity Provider Requirements](#identity-provider-requirements) for details.
 
 Drop it between AI clients and your backend — no SDK modification needed. Handles **RS256 JWTs**, audience/issuer checks, per-tool scopes, role-based policies, and optional **DCR** client promotion.
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)
-![Cloud Run](https://img.shields.io/badge/Cloud%20Run-ready-4285F4)
-![Auth0](https://img.shields.io/badge/Auth0-RS256-orange)
-[![MCP/Auth Conformance](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/davidcrowe/gatewaystack/main/docs/conformance.json)](./docs/conformance.json)
 
 > **Conformance summary**  
 > Verified against Apps SDK / MCP OAuth 2.1 + RS256 flow.  
@@ -225,7 +212,7 @@ Drop it between AI clients and your backend — no SDK modification needed. Hand
 > - ✅ Expiry handling  
 > - ✅ Health & protected resource endpoints  
 
-**Quick links:**
+### Quick links
 
 * ▶️ [Quickstart (10 minutes)](#quickstart-10-minutes)
 * 🔐 [Identity Provider Setup](#identity-provider-setup)
@@ -237,7 +224,11 @@ Drop it between AI clients and your backend — no SDK modification needed. Hand
 * 🛡️ [Production Checklist](#production-checklist)
 * 🆘 [Troubleshooting](#troubleshooting)
 
----
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)
+![Cloud Run](https://img.shields.io/badge/Cloud%20Run-ready-4285F4)
+![Auth0](https://img.shields.io/badge/Auth0-RS256-orange)
+[![MCP/Auth Conformance](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/davidcrowe/gatewaystack/main/docs/conformance.json)](./docs/conformance.json)
 
 ## Use Cases
 
@@ -293,11 +284,17 @@ A SaaS platform offers AI features across free, pro, and enterprise tiers. Today
 **Identity Providers (Auth0, Okta, Cognito, Entra ID)**  
 Handle login and token minting, but stop at the edge of your app. They don't understand model calls, tools, or which provider a request is going to — and they don't enforce user identity inside the AI gateway.
 
+---
+
 **API Gateways and Service Meshes (Kong, Apigee, AWS API Gateway, Istio, Envoy)**  
 Great at path/method-level auth and rate limiting, but they treat LLMs like any other HTTP backend. **You can build AI governance on top of them** (Kong plugins, Istio policies, Lambda authorizers), **but it requires 100+ hours of custom development** to replicate what Gatewaystack provides out-of-the-box: user-scoped identity normalization, per-tool scope enforcement, pre-flight cost checks, Apps SDK / MCP compliance, and AI-specific audit trails.
 
+---
+
 **Cloud AI Gateways (Cloudflare AI Gateway, Azure OpenAI + API Management, Vertex AI, Bedrock Guardrails)**  
 Focus on provider routing, quota, and safety filters at the tenant or API key level. User identity is usually out-of-band or left to the application.
+
+---
 
 **Hand-Rolled Middleware**  
 Many teams glue together JWT validation, headers, and logging inside their app or a thin Node/Go proxy. It works... until you need to support multiple agents, providers, tenants, and audit/regulatory requirements.
@@ -326,7 +323,7 @@ To get user-scoped AI governance with Kong, you'd need to:
 
 You can still run Gatewaystack alongside traditional API gateways — it's the **user-scoped identity and governance slice** of your AI stack.
 
-### vs Traditional API Gateways
+### GatewayStack vs Traditional API Gateways
 
 | Feature | Kong/Apigee/AWS API Gateway | Gatewaystack |
 |---------|---------------------------|--------------|
@@ -340,8 +337,6 @@ You can still run Gatewaystack alongside traditional API gateways — it's the *
 | **Model-specific policies** | ❌ Manual (custom logic) | ✅ Built-in |
 | **AI audit trails** | ❌ Manual (log forwarding) | ✅ Built-in |
 | **Setup time** | 100+ hours (custom dev) | 2 hours (config) |
-
----
 
 ## Demos
 
@@ -375,8 +370,6 @@ ENABLE_TEST_ROUTES=true
 
 With demo mode on you can run `npm run demo:*`, call `/protected/ping`, exercise `/proxy/*`, and run MCP JSON-RPC flows without touching Auth0.
 
----
-
 ## Getting Started
 
 Choose your path:
@@ -385,7 +378,6 @@ Choose your path:
 **Production Setup (30 min)** → Connect to Auth0/Okta + ChatGPT/Claude  
 **Deployment** → Cloud Run, Docker, Kubernetes
 
----
 
 ## Quickstart (10 minutes)
 
@@ -407,16 +399,12 @@ npm run dev
 - ✅ *(Optional)* **DCR webhook** to auto-promote new OAuth clients from Auth0 logs
 - ✅ **Echo test servers** to validate proxy/header injection
 
----
-
 ### Prerequisites
 
 - Node.js **20+** (or 22)
 - npm **10+** (or pnpm 9)
 - An **Auth0 tenant** (or equivalent OIDC provider issuing RS256 access tokens)
 - *(Optional)* Google Cloud SDK for Cloud Run deploys
-
----
 
 ### Minimal Auth0 Setup (≈10 minutes)
 
@@ -425,8 +413,6 @@ npm run dev
 > Auth0 examples are provided for quick setup—the same patterns apply to all providers. See [Identity Provider Requirements](#identity-provider-requirements) for details.
 
 **Requirements for any IdP:** See [Identity Provider Requirements](#identity-provider-requirements) below.
-
----
 
 ### Identity Provider Requirements
 
@@ -454,8 +440,6 @@ Gatewaystack requires an OAuth 2.1 / OIDC provider that issues **RS256 JWTs**.
 | **Custom** | ✅ Any RS256 provider | Must meet requirements above |
 
 **Need help with your IdP?** Open a [GitHub Discussion](https://github.com/davidcrowe/gatewaystack/discussions).
-
----
 
 #### Create an API (Auth0 Dashboard → Applications → APIs)
 
@@ -493,8 +477,6 @@ read:clients update:clients read:connections update:connections read:logs
 
 * From your app’s Auth0 **Test** tab or via a quick PKCE flow.
 * Ensure the token’s **audience** matches your API identifier and includes the scopes you want to test (e.g., `tool:read`).
-
----
 
 ### Auth0 Post-Login Action for ChatGPT connectors
 > **⚠️ Auth0-Specific Feature**  
@@ -540,8 +522,6 @@ See `apps/gateway-server/.env.example` for the full reference, including:
 - Tool scopes (`TOOL_SCOPES_JSON`)
 - DCR webhook (`MGMT_*`, `LOG_WEBHOOK_SECRET`)
 
----
-
 ### Start the Test Backends (Echo Servers)
 
 These help prove proxy + header injection:
@@ -558,8 +538,6 @@ The echo server simply returns the headers, query, and body it receives. Combine
 
 Need a fake tool backend instead of an echo? Run `tsx tools/mock-tools-server/index.ts` to spin up JSON handlers (on :9090 by default) that mimic `generateDreamSummary`, `chatWithEmbeddingsv3`, etc. for end-to-end proxy tests.
 
----
-
 ### Run the Gateway (dev)
 
 From the repo root:
@@ -573,8 +551,6 @@ npm run dev:admin    # apps/admin-ui
 - `npm run dev` starts the gateway and Admin UI together.
 - `npm run dev:server` starts the Express gateway only.
 - `npm run dev:admin` starts the Admin UI, which is primarily used to visualize `/health` and related outputs.
-
----
 
 ### Health & Basic Smoke Tests
 
@@ -624,8 +600,6 @@ When you add a new tool scope in `TOOL_SCOPES`, the gateway automatically:
 * `/health/auth0` → issuer/audience OK, JWKS reachable
 * Protected resource → **401** w/o token, **200** w/ token
 
----
-
 ## Testing
 
 Run the full test suite:
@@ -638,8 +612,6 @@ This runs Vitest plus the conformance report writer that updates `docs/conforman
 For detailed testing workflows, see:
 - `docs/testing.md` — `/__test__/echo` routes, scope checks, proxy validation
 - `CONTRIBUTING.md` — Pre-PR checklist
-
----
 
 ### DCR Webhook (Optional)
 
@@ -674,8 +646,6 @@ Trigger a client registration event (or simulate via Auth0 log events).
 
 Check `/health/auth0` — you should see a **recent webhook last-seen** timestamp and successful management calls in your logs.
 
----
-
 ### Troubleshooting
 
 > **Using Auth0 + ChatGPT?** For Auth0-specific issues (Post-Login Actions, JWE vs JWS tokens, scopes not showing up, etc.), see `docs/auth0/chatgpt-post-login-action.md` → “Troubleshooting checklist”.
@@ -699,8 +669,6 @@ Check `/health/auth0` — you should see a **recent webhook last-seen** timestam
 
 * Lower `RATE_LIMIT_MAX` and ensure identifier (user/tenant) is parsed from the token’s `sub` / `org_id`
 
----
-
 ### Production Checklist
 
 * ✅ RS256 enforced; JWKS timeout & caching tuned
@@ -710,8 +678,6 @@ Check `/health/auth0` — you should see a **recent webhook last-seen** timestam
 * ✅ Logs redact PII; audit fields: `{sub, tool, path, decision, latency}`
 * ✅ Health probes hooked into your orchestrator
 * ✅ *(Optional)* DCR webhook secret rotated; Mgmt API scopes minimal
-
----
 
 ## Deployment
 
@@ -768,8 +734,6 @@ docker run -p 8080:8080 \
 
 **See:** `docs/deployment/docker.md` for Docker Compose, Kubernetes manifests, etc.
 
----
-
 ### Other Platforms
 
 | Platform | Difficulty | Guide |
@@ -781,8 +745,6 @@ docker run -p 8080:8080 \
 | **Kubernetes** | Hard | `docs/deployment/kubernetes.md` |
 
 **Air-gapped / on-prem deployments:** Fully supported (Docker + self-hosted)
-
----
 
 ### CI/CD
 
@@ -798,14 +760,10 @@ docker run -p 8080:8080 \
     GCP_PROJECT: ${{ secrets.GCP_PROJECT }}
 ```
 
----
-
 ## Connect to Claude (MCP)
 
 If you’re using this gateway as an **MCP server** (e.g. Claude Desktop, Cursor, etc.), no code changes are required.
 The gateway is **auth-initiator agnostic** — it simply validates RS256 tokens and enforces scopes, regardless of who started the OAuth flow.
-
----
 
 ### 1️⃣ Return 401 with Protected Resource Metadata (PRM) pointer
 
@@ -818,8 +776,6 @@ Content-Type: application/json
 ```
 
 > The PRM URL tells the MCP client where to discover OAuth configuration for this resource.
-
----
 
 ### 2️⃣ Protected Resource Metadata (PRM) Example
 
@@ -839,8 +795,6 @@ Serve this JSON at `/.well-known/oauth-protected-resource`:
 | `authorization_servers` | OAuth / OIDC issuer (e.g. Auth0, Okta)    |
 | `scopes_supported`      | Scopes mapped to your route allowlist     |
 
----
-
 ### 3️⃣ Scopes → Routes (deny-by-default)
 
 | **Scope**    | **Routes**         |
@@ -850,8 +804,6 @@ Serve this JSON at `/.well-known/oauth-protected-resource`:
 
 Requests with a valid token but missing scope will receive **403 Forbidden**.
 
----
-
 ### 4️⃣ Redirect URIs (common MCP clients)
 
 Register your client with the IdP and allow its redirect URI(s):
@@ -860,8 +812,6 @@ Register your client with the IdP and allow its redirect URI(s):
 * **Cursor IDE:** their documented OAuth callback
 
 If your IdP supports **Dynamic Client Registration (DCR)**, you can enable it instead of pre-registering.
-
----
 
 ### 5️⃣ Smoke Test
 ```bash
@@ -875,17 +825,11 @@ curl -i -H "Authorization: Bearer $TOKEN" https://<YOUR_GATEWAY>/protected
 curl -i -H "Authorization: Bearer $TOKEN" https://<YOUR_GATEWAY>/writer-only
 ```
 
----
-
 ### ⚙️ Implementation Notes
 
 * Always validate `iss`, **pin `aud`**, enforce `alg = RS256`, and honor `exp`/`nbf`.
 * Keep tokens **short-lived**; rotate/revoke via your IdP.
 * Use gateway **identity injection** (e.g. `X-User-Id`) to pass user context downstream — never expose upstream API keys to the LLM client.
-
----
-
----
 
 ## What's Next?
 
@@ -904,8 +848,6 @@ curl -i -H "Authorization: Bearer $TOKEN" https://<YOUR_GATEWAY>/writer-only
 - 🤝 Read [CONTRIBUTING.md](CONTRIBUTING.md)
 - 🐛 Report bugs via [GitHub Issues](https://github.com/davidcrowe/gatewaystack/issues)
 - ⭐ Star the repo if this helps you!
-
----
 
 ## License
 
