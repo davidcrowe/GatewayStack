@@ -20,8 +20,8 @@
       "@gatewaystack/transformabl-core": ["packages/transformabl-core/src"],
       "@gatewaystack/transformabl": ["packages/transformabl/src"],
 
-      "@gatewaystack/validatabl-core": ["packages/validatabl-core/src"],   // 👈 change to src
-      "@gatewaystack/validatabl": ["packages/validatabl/src"],             // 👈 change to src
+      "@gatewaystack/validatabl-core": ["packages/validatabl-core/src/index.ts"],
+      "@gatewaystack/validatabl": ["packages/validatabl/src"],
 
       "@gatewaystack/limitabl-core": ["packages/limitabl-core/src"],
       "@gatewaystack/limitabl": ["packages/limitabl/src"],
