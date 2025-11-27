@@ -2,7 +2,8 @@
 
 An open-source control plane that makes AI agents **enterprise-ready** by enforcing user-scoped identity, policy, and audit trails on every model call.
 
-**The problem:** 
+**The problem:**  
+
 AI models and user data need each other... but can't safely connect. 
 
 - Users want AI to access *their* data (ChatGPT reading *my* calendar). 
@@ -10,7 +11,8 @@ AI models and user data need each other... but can't safely connect.
 
 Both require **cryptographic proof of user identity** tied to every AI request... but AI platforms authenticate users on their side while your backend has no verified identity to enforce policies, filter data, or log actions.
 
-**Gatewaystack solves this.** 
+**Gatewaystack solves this.**  
+
 Drop it between AI clients (ChatGPT, Claude, MCP) and your backend. It validates OAuth tokens, enforces scopes, and injects verified identity—so you can safely answer the two questions that matter most:
 
 1. **Who** did what, with **which** data, via **which** model?
@@ -213,12 +215,15 @@ Every request flows through the same six-layer composable pipeline:
 
 Drop it between AI clients and your backend — no SDK modification needed. Handles **RS256 JWTs**, audience/issuer checks, per-tool scopes, role-based policies, and optional **DCR** client promotion.
 
-> **Conformance summary**  
-> Verified against Apps SDK / MCP OAuth 2.1 + RS256 flow.  
-> - ✅ JWT validation (iss/aud/sub/exp/nbf)  
-> - ✅ Scope allowlist / deny-by-default  
-> - ✅ Expiry handling  
-> - ✅ Health & protected resource endpoints  
+---
+
+### Conformance summary
+
+Verified against Apps SDK / MCP OAuth 2.1 + RS256 flow.  
+- ✅ JWT validation (iss/aud/sub/exp/nbf)  
+- ✅ Scope allowlist / deny-by-default  
+- ✅ Expiry handling  
+- ✅ Health & protected resource endpoints  
 
 ---
 
@@ -238,7 +243,11 @@ Drop it between AI clients and your backend — no SDK modification needed. Hand
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)
 ![Cloud Run](https://img.shields.io/badge/Cloud%20Run-ready-4285F4)
 ![Auth0](https://img.shields.io/badge/Auth0-RS256-orange)
-[![MCP/Auth Conformance](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/davidcrowe/gatewaystack/main/docs/conformance.json)](./docs/conformance.json)
+[![MCP/Auth Conformance](https://img.shields.io/badge/dynamic/json
+  ?url=https%3A%2F%2Fraw.githubusercontent.com%2Fdavidcrowe%2Fgatewaystack%2Fmain%2Fdocs%2Fconformance.json
+  &query=$.version
+  &label=MCP%2FAuth%20Conformance)](./docs/conformance.json)
+
 
 ## Use Cases
 
