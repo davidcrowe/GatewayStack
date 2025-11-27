@@ -49,3 +49,13 @@ aws-credentials
 *.pem
 *.key
 *.crt
+
+# TypeScript build artifacts in packages
+packages/**/dist/
+packages/**/tsconfig.tsbuildinfo
+
+# Prevent compiled JS/decls from being committed alongside TS source
+packages/**/src/*.js
+packages/**/src/*.js.map
+packages/**/src/*.d.ts
+packages/**/src/*.d.ts.map
