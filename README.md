@@ -248,10 +248,8 @@ Verified against Apps SDK / MCP OAuth 2.1 + RS256 flow.
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)
 ![Cloud Run](https://img.shields.io/badge/Cloud%20Run-ready-4285F4)
 ![Auth0](https://img.shields.io/badge/Auth0-RS256-orange)
-[![MCP/Auth Conformance](https://img.shields.io/badge/dynamic/json
-  ?url=https%3A%2F%2Fraw.githubusercontent.com%2Fdavidcrowe%2Fgatewaystack%2Fmain%2Fdocs%2Fconformance.json
-  &query=$.version
-  &label=MCP%2FAuth%20Conformance)](./docs/conformance.json)
+[![MCP/Auth Conformance](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fdavidcrowe%2Fgatewaystack%2Fmain%2Fdocs%2Fconformance.json&query=$.version&label=MCP%2FAuth%20Conformance)](https://github.com/davidcrowe/gatewaystack/tree/main/docs/conformance.json)
+
 
 
 ## Use Cases
@@ -316,8 +314,6 @@ Focus on provider routing, quota, and safety filters at the tenant or API key le
 
 **Hand-Rolled Middleware**  
 Many teams glue together JWT validation, headers, and logging inside their app or a thin Node/Go proxy. It works... until you need to support multiple agents, providers, tenants, and audit/regulatory requirements.
-
----
 
 **Gatewaystack is different:**
 - **User-scoped by default** — every request is tied to a verified user, not a shared key
