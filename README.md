@@ -50,32 +50,11 @@ It shows up in two directions:
 
 ---
 
-### Direction 1: Users accessing their own data via AI
-*"How do I let ChatGPT read **my** calendar without exposing **everyone's** calendar?"*
 
-**Without Gatewaystack:**
-```typescript
-app.get('/calendar', async (_req, res) => {
-  const events = await getAllEvents(); // ❌ Everyone sees everything
-  res.json(events);
-});
-```
-
-**With Gatewaystack:**
-```typescript
-app.get('/calendar', async (req, res) => {
-  const userId = req.headers['x-user-id']; // ✅ Verified by gateway
-  const events = await getUserEvents(userId);
-  res.json(events);
-});
-```
-
-The gateway validates the OAuth token, extracts the user identity, and injects `X-User-Id` — so your backend can safely filter data per-user.
-
----
-
-### Direction 2: Enterprises controlling who can use which models and tools
+### Direction 1: Enterprises controlling who can use which models and tools
 *"How do I ensure only **licensed doctors** use medical models, only **analysts** access financial data, and **contractors** can't send sensitive prompts?"*
+
+> user ↔ backend ↔ LLM
 
 **Without Gatewaystack:**
 ```typescript
@@ -117,6 +96,32 @@ app.post('/chat', async (req, res) => {
 ```
 
 The gateway enforces role + scope checks **before** forwarding to your backend. If a nurse tries to use `gpt-4-medical`, they get `403 Forbidden`.
+
+---
+
+### Direction 2: Users accessing their own data via AI
+*"How do I let ChatGPT read **my** calendar without exposing **everyone's** calendar?"*
+
+> user ↔ LLM ↔ backend
+
+**Without Gatewaystack:**
+```typescript
+app.get('/calendar', async (_req, res) => {
+  const events = await getAllEvents(); // ❌ Everyone sees everything
+  res.json(events);
+});
+```
+
+**With Gatewaystack:**
+```typescript
+app.get('/calendar', async (req, res) => {
+  const userId = req.headers['x-user-id']; // ✅ Verified by gateway
+  const events = await getUserEvents(userId);
+  res.json(events);
+});
+```
+
+The gateway validates the OAuth token, extracts the user identity, and injects `X-User-Id` — so your backend can safely filter data per-user.
 
 ---
 
@@ -243,10 +248,8 @@ Verified against Apps SDK / MCP OAuth 2.1 + RS256 flow.
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)
 ![Cloud Run](https://img.shields.io/badge/Cloud%20Run-ready-4285F4)
 ![Auth0](https://img.shields.io/badge/Auth0-RS256-orange)
-[![MCP/Auth Conformance](https://img.shields.io/badge/dynamic/json
-  ?url=https%3A%2F%2Fraw.githubusercontent.com%2Fdavidcrowe%2Fgatewaystack%2Fmain%2Fdocs%2Fconformance.json
-  &query=$.version
-  &label=MCP%2FAuth%20Conformance)](./docs/conformance.json)
+[![MCP/Auth Conformance](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fdavidcrowe%2Fgatewaystack%2Fmain%2Fdocs%2Fconformance.json&query=$.version&label=MCP%2FAuth%20Conformance)](https://github.com/davidcrowe/gatewaystack/tree/main/docs/conformance.json)
+
 
 
 ## Use Cases
@@ -311,8 +314,6 @@ Focus on provider routing, quota, and safety filters at the tenant or API key le
 
 **Hand-Rolled Middleware**  
 Many teams glue together JWT validation, headers, and logging inside their app or a thin Node/Go proxy. It works... until you need to support multiple agents, providers, tenants, and audit/regulatory requirements.
-
----
 
 **Gatewaystack is different:**
 - **User-scoped by default** — every request is tied to a verified user, not a shared key
