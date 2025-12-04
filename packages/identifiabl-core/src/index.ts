@@ -57,20 +57,22 @@ export interface VerifyFailure {
 
 export type VerifyResult = VerifySuccess | VerifyFailure;
 
-/**
- * Escape a string for safe use inside a RegExp literal.
- */
-function escapeForRegex(input: string): string {
-  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
+// /**
+//  * Escape a string for safe use inside a RegExp literal.
+//  */
+// function escapeForRegex(input: string): string {
+//   return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// }
 
-/**
- * Build a pattern that matches the issuer with or without a trailing slash.
- */
-function buildIssuerPattern(issuer: string): RegExp {
-  const issuerNoSlash = issuer.replace(/\/+$/, "");
-  return new RegExp(`^${escapeForRegex(issuerNoSlash)}\\/?$`);
-}
+// /**
+//  * Build a pattern that matches the issuer with or without a trailing slash.
+//  */
+// function buildIssuerPattern(issuer: string): RegExp {
+//   const issuerNoSlash = issuer.replace(/\/+$/, "");
+//   return new RegExp(`^${escapeForRegex(issuerNoSlash)}\\/?$`);
+// }
+
+
 
 function mapPayloadToGatewayIdentity(
   payload: JWTPayload,
@@ -140,7 +142,6 @@ export function createIdentifiablVerifier(
   config: IdentifiablCoreConfig
 ): (token: string) => Promise<VerifyResult> {
   const issuerNoSlash = config.issuer.replace(/\/+$/, "");
-  const issuerPattern = buildIssuerPattern(config.issuer);
   const audience = config.audience;
   const jwksUri =
     config.jwksUri || `${issuerNoSlash}/.well-known/jwks.json`;
@@ -156,7 +157,8 @@ export function createIdentifiablVerifier(
       });
 
       const iss = String(payload.iss || "");
-      if (!issuerPattern.test(iss)) {
+      const issNoSlash = iss.replace(/\/+$/, "");
+      if (issNoSlash !== issuerNoSlash) {
         return {
           ok: false,
           error: "invalid_token",
