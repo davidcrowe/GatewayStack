@@ -4,7 +4,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "dependencies": {
-    "jose": "^5.0.0"
+    "jose": "^5.0.0",
+    "identifiabl": "0.1.0"
   },
   "peerDependencies": {
     "express": "^4.0.0 || ^5.0.0"

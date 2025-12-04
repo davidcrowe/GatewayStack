@@ -40,7 +40,7 @@ function buildIssuerPattern(issuer: string): RegExp {
  *  - Checks audience and issuer
  *  - Attaches the JWT payload to req.user
  */
-import { createIdentifiablVerifier } from "@gatewaystack/identifiabl-core";
+import { createIdentifiablVerifier } from "identifiabl";
 
 export function identifiabl(config: IdentifiablConfig): RequestHandler {
   const verify = createIdentifiablVerifier(config);
