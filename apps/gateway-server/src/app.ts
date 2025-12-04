@@ -128,9 +128,9 @@ export function buildApp(env: NodeJS.ProcessEnv) {
   // -----------------------------
   app.use(
     "/protected",
+    limitablMiddleware,
     identifiablMiddleware,
-    transformablMiddleware,
-    limitablMiddleware
+    transformablMiddleware
   );
 
   // READ example (no extra scope)

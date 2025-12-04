@@ -135,13 +135,21 @@ function mapPayloadToGatewayIdentity(
   };
 }
 
+function trimTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === "/") {
+    end--;
+  }
+  return value.slice(0, end);
+}
+
 /**
  * Factory that returns a token verifier you can use in any environment.
  */
 export function createIdentifiablVerifier(
   config: IdentifiablCoreConfig
 ): (token: string) => Promise<VerifyResult> {
-  const issuerNoSlash = config.issuer.replace(/\/+$/, "");
+  const issuerNoSlash = trimTrailingSlashes(config.issuer);
   const audience = config.audience;
   const jwksUri =
     config.jwksUri || `${issuerNoSlash}/.well-known/jwks.json`;
@@ -157,7 +165,7 @@ export function createIdentifiablVerifier(
       });
 
       const iss = String(payload.iss || "");
-      const issNoSlash = iss.replace(/\/+$/, "");
+      const issNoSlash = trimTrailingSlashes(iss);
       if (issNoSlash !== issuerNoSlash) {
         return {
           ok: false,
