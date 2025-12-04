@@ -4,10 +4,33 @@ import {
   type JWTPayload,
 } from "jose";
 
-import type {
-  GatewayIdentity,
-  IdentitySource,
-} from "@gatewaystack/request-context";
+// import type {
+//   GatewayIdentity,
+//   IdentitySource,
+// } from "@gatewaystack/request-context";
+
+// remove this:
+// import type { GatewayIdentity, IdentitySource } from "@gatewaystack/request-context";
+
+export type IdentitySource =
+  | "auth0"
+  | "stytch"
+  | "cognito"
+  | "custom"
+  | string;
+
+export interface GatewayIdentity {
+  sub: string;
+  issuer: string;
+  tenantId?: string;
+  email?: string;
+  name?: string;
+  roles?: string[];
+  scopes?: string[];
+  plan?: string;
+  source: IdentitySource;
+  raw: Record<string, unknown>;
+}
 
 export interface IdentifiablCoreConfig {
   issuer: string;
@@ -34,20 +57,22 @@ export interface VerifyFailure {
 
 export type VerifyResult = VerifySuccess | VerifyFailure;
 
-/**
- * Escape a string for safe use inside a RegExp literal.
- */
-function escapeForRegex(input: string): string {
-  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
+// /**
+//  * Escape a string for safe use inside a RegExp literal.
+//  */
+// function escapeForRegex(input: string): string {
+//   return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// }
 
-/**
- * Build a pattern that matches the issuer with or without a trailing slash.
- */
-function buildIssuerPattern(issuer: string): RegExp {
-  const issuerNoSlash = issuer.replace(/\/+$/, "");
-  return new RegExp(`^${escapeForRegex(issuerNoSlash)}\\/?$`);
-}
+// /**
+//  * Build a pattern that matches the issuer with or without a trailing slash.
+//  */
+// function buildIssuerPattern(issuer: string): RegExp {
+//   const issuerNoSlash = issuer.replace(/\/+$/, "");
+//   return new RegExp(`^${escapeForRegex(issuerNoSlash)}\\/?$`);
+// }
+
+
 
 function mapPayloadToGatewayIdentity(
   payload: JWTPayload,
@@ -110,14 +135,21 @@ function mapPayloadToGatewayIdentity(
   };
 }
 
+function trimTrailingSlashes(value: string): string {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === "/") {
+    end--;
+  }
+  return value.slice(0, end);
+}
+
 /**
  * Factory that returns a token verifier you can use in any environment.
  */
 export function createIdentifiablVerifier(
   config: IdentifiablCoreConfig
 ): (token: string) => Promise<VerifyResult> {
-  const issuerNoSlash = config.issuer.replace(/\/+$/, "");
-  const issuerPattern = buildIssuerPattern(config.issuer);
+  const issuerNoSlash = trimTrailingSlashes(config.issuer);
   const audience = config.audience;
   const jwksUri =
     config.jwksUri || `${issuerNoSlash}/.well-known/jwks.json`;
@@ -126,10 +158,15 @@ export function createIdentifiablVerifier(
 
   return async (token: string): Promise<VerifyResult> => {
     try {
-      const { payload } = await jwtVerify(token, JWKS, { audience });
+      const { payload } = await jwtVerify(token, JWKS, {
+        audience,
+        algorithms: ["RS256"],
+        clockTolerance: "60s"
+      });
 
       const iss = String(payload.iss || "");
-      if (!issuerPattern.test(iss)) {
+      const issNoSlash = trimTrailingSlashes(iss);
+      if (issNoSlash !== issuerNoSlash) {
         return {
           ok: false,
           error: "invalid_token",

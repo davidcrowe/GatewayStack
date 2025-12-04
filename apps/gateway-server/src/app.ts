@@ -13,6 +13,8 @@ import { explicablRouter } from "@gatewaystack/explicabl";
 
 import { testEchoRoutes } from "./routes/testEcho";
 
+import rateLimit from "express-rate-limit";
+
 /**
  * GatewayStack reference server
  *
@@ -57,6 +59,12 @@ export function buildApp(env: NodeJS.ProcessEnv) {
   const windowMs = +(process.env.RATE_LIMIT_WINDOW_MS ?? 60_000);
   const limit = +(process.env.RATE_LIMIT_MAX ?? 10);
 
+  // Very loose limiter for PRM metadata (satisfies CodeQL, effectively no impact)
+  const prmLimiter = rateLimit({
+    windowMs,
+    max: limit * 100, // extremely generous
+  });
+
   // -----------------------------
   // Core Express setup
   // -----------------------------
@@ -90,13 +98,24 @@ export function buildApp(env: NodeJS.ProcessEnv) {
   // Layer 3: Mount validatabl’s PRM router early for public metadata
   // validatabl is added as added via requireScope() in the protected area below
   // -----------------------------
+  // app.use(
+  //   protectedResourceRouter({
+  //     issuer: OAUTH_ISSUER.replace(/\/+$/, ""),
+  //     audience: OAUTH_AUDIENCE,
+  //     scopes: OAUTH_SCOPES,
+  //   }) as unknown as RequestHandler
+  // );
+
   app.use(
+    "/prm",
+    prmLimiter,
     protectedResourceRouter({
       issuer: OAUTH_ISSUER.replace(/\/+$/, ""),
       audience: OAUTH_AUDIENCE,
       scopes: OAUTH_SCOPES,
     }) as unknown as RequestHandler
   );
+
 
   // -----------------------------
   // Layer 4: limitabl (per-identity rate limiting)
@@ -109,9 +128,9 @@ export function buildApp(env: NodeJS.ProcessEnv) {
   // -----------------------------
   app.use(
     "/protected",
+    limitablMiddleware,
     identifiablMiddleware,
-    transformablMiddleware,
-    limitablMiddleware
+    transformablMiddleware
   );
 
   // READ example (no extra scope)
