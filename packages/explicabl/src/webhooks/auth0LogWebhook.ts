@@ -185,20 +185,22 @@ async function ensureClientGrant(
   } as any);
 
   if (!r.ok) {
+    // ✅ only log non-sensitive status, no clientId/audience derivatives
     console.error("[ensureClientGrant:error]", {
       status: r.status,
-      client_id_suffix: clientId.slice(-5),
-      audience_suffix: aud.slice(-10)
+      has_audience: Boolean(aud),
+      scope_count: scopes.length,
     });
     throw new Error(`client_grant_http_${r.status}`);
   }
 
+  // ✅ success log also avoids any clientId/audience values
   console.log("[dcr] created client grant", {
-    client_id_suffix: clientId.slice(-5),
-    audience_suffix: aud.slice(-10),
     scope_count: scopes.length,
+    has_audience: Boolean(aud),
   });
 }
+
 
 // ---- log helpers ----
 function unwrap(ev: any): any {
