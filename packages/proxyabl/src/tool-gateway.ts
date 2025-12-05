@@ -36,6 +36,7 @@ const RATE_WINDOW_MS = +(process.env.RATE_WINDOW_MS || 60_000); // 1 minute
 const TOOL_MAX_PER_WINDOW = +(process.env.TOOL_MAX_PER_WINDOW || 60);
 const MCP_MAX_PER_WINDOW  = +(process.env.MCP_MAX_PER_WINDOW || 60);
 const WEBHOOK_MAX_PER_WINDOW = +(process.env.WEBHOOK_MAX_PER_WINDOW || 30);
+const DISCOVERY_MAX_PER_WINDOW = +(process.env.DISCOVERY_MAX_PER_WINDOW || 120);
 
 // Loosen the param type to avoid cross-package @types/express mismatch
 const keyFromReq = (req: any): string => {
@@ -69,6 +70,15 @@ const mcpLimiter = rateLimit({
 const webhookLimiter = rateLimit({
   windowMs: RATE_WINDOW_MS,
   max: WEBHOOK_MAX_PER_WINDOW,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: keyFromReq,
+});
+
+// New: discovery limiter for well-known endpoints & metadata
+const discoveryLimiter = rateLimit({
+  windowMs: RATE_WINDOW_MS,
+  max: DISCOVERY_MAX_PER_WINDOW,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: keyFromReq,
@@ -1127,17 +1137,41 @@ const PROXY_PREFIX = process.env.PROXY_PREFIX || "/proxy";       // e.g. "/proxy
 const PROXY_INJECT_HEADER = process.env.PROXY_INJECT_HEADER || "";// e.g. "X-User-Id"
 const PROXY_INJECT_QUERY  = process.env.PROXY_INJECT_QUERY  || "";// e.g. "userId"
 
+// Parse and validate PROXY_TARGET once to avoid SSRF-style host smuggling
+const PROXY_TARGET_URL: URL | null = (() => {
+  if (!PROXY_TARGET) return null;
+  try {
+    const u = new URL(PROXY_TARGET);
+    if (!/^https?:$/.test(u.protocol)) {
+      console.error("[proxy] PROXY_TARGET must be http or https");
+      return null;
+    }
+    if (!/^[a-zA-Z0-9.-]+$/.test(u.hostname)) {
+      console.error("[proxy] invalid PROXY_TARGET hostname:", u.hostname);
+      return null;
+    }
+    return u;
+  } catch (e) {
+    console.error("[proxy] invalid PROXY_TARGET:", PROXY_TARGET, e);
+    return null;
+  }
+})();
+
 function sanitizeProxyPath(rawTail: string): string {
   let p = rawTail || "/";
 
   // Normalize: ensure we always treat it as a path, not a URL
-  // Strip repeated leading slashes but keep one
   p = "/" + p.replace(/^\/+/, "");
 
-  // Block attempts to smuggle in absolute URLs:
-  //  - "//evil.com" (network-path reference)
-  //  - "http://..." or "https://..." or any "scheme://"
+  // Block attempts to smuggle in absolute URLs or schemes
   if (p.startsWith("//") || p.includes("://")) {
+    const err: any = new Error("INVALID_UPSTREAM_PATH");
+    err.status = 400;
+    throw err;
+  }
+
+  // Optional: avoid .. path traversal
+  if (p.includes("..")) {
     const err: any = new Error("INVALID_UPSTREAM_PATH");
     err.status = 400;
     throw err;
@@ -1146,79 +1180,90 @@ function sanitizeProxyPath(rawTail: string): string {
   return p;
 }
 
-if (PROXY_TARGET) {
+if (PROXY_TARGET_URL) {
   console.log("[proxy] enabled", {
-    target: PROXY_TARGET,
+    target: PROXY_TARGET_URL.toString(),
     prefix: PROXY_PREFIX,
     injectHeader: PROXY_INJECT_HEADER || null,
     injectQuery: PROXY_INJECT_QUERY || null,
   });
 
   toolGatewayRouter.all(`${PROXY_PREFIX}/*`, async (req: Request, res: Response) => {
-  try {
-    // 1) Verify the Bearer token (or rely on your global gate; if so, you can skip this)
-    const payload = await verifyBearer(req);
-    const sub = String(payload.sub || "");
-    if (!sub) {
-      const e: any = new Error("TOKEN_NO_SUB");
-      e.status = 401;
-      e.www = buildWwwAuthenticate(req) + ', error="invalid_token"';
-      throw e;
+    try {
+      const payload = await verifyBearer(req);
+      const sub = String(payload.sub || "");
+      if (!sub) {
+        const e: any = new Error("TOKEN_NO_SUB");
+        e.status = 401;
+        e.www = buildWwwAuthenticate(req) + ', error="invalid_token"';
+        throw e;
+      }
+
+      const rawTail = req.path.slice(PROXY_PREFIX.length) || "/";
+      const tail = sanitizeProxyPath(rawTail);
+
+      // Use the validated PROXY_TARGET_URL as the base
+      const urlObj = new URL(tail, PROXY_TARGET_URL);
+
+      for (const [k, v] of Object.entries(req.query)) {
+        if (Array.isArray(v)) v.forEach(x => urlObj.searchParams.append(k, String(x)));
+        else if (v != null) urlObj.searchParams.append(k, String(v));
+      }
+      if (PROXY_INJECT_QUERY) urlObj.searchParams.set(PROXY_INJECT_QUERY, sub);
+
+      const headers: Record<string, string> = {};
+      for (const [k, v] of Object.entries(req.headers)) {
+        if (["host","connection","content-length","transfer-encoding","authorization"].includes(k)) continue;
+        headers[k] = Array.isArray(v) ? v.join(", ") : (v as string);
+      }
+      if (PROXY_INJECT_HEADER) headers[PROXY_INJECT_HEADER] = sub;
+
+      const method = req.method.toUpperCase();
+      const body = !["GET","HEAD"].includes(method) && req.body ? JSON.stringify(req.body) : undefined;
+      if (body) headers["content-type"] = headers["content-type"] || "application/json";
+
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), +(process.env.PROXY_TIMEOUT_MS || 5000));
+      const upstream = await fetch(urlObj.toString(), { method, headers, body, signal: controller.signal } as any);
+      clearTimeout(t);
+
+      res.status(upstream.status);
+      upstream.headers.forEach((val, key) => {
+        if (!["content-length","transfer-encoding","connection"].includes(key)) res.setHeader(key, val);
+      });
+      const buf = Buffer.from(await upstream.arrayBuffer());
+      res.end(buf);
+    } catch (e: any) {
+      if (e?.name === "AbortError") {
+        return res.status(502).json({ error: "upstream_timeout" });
+      }
+      if (e?.www) res.setHeader("WWW-Authenticate", e.www);
+      const status = Number(e?.status) || 502;
+      console.error("[proxy:error]", e?.message || e);
+      res.status(status).json({ error: "proxy_failed", detail: String(e?.message || e) });
     }
-
-    // 2) Build upstream URL
-    const rawTail = req.path.slice(PROXY_PREFIX.length) || "/";
-    const tail = sanitizeProxyPath(rawTail);
-    const urlObj = new URL(tail, PROXY_TARGET);
-
-    for (const [k, v] of Object.entries(req.query)) {
-      if (Array.isArray(v)) v.forEach(x => urlObj.searchParams.append(k, String(x)));
-      else if (v != null) urlObj.searchParams.append(k, String(v));
-    }
-    if (PROXY_INJECT_QUERY) urlObj.searchParams.set(PROXY_INJECT_QUERY, sub);
-
-    // 3) Prepare headers/body
-    const headers: Record<string,string> = {};
-    for (const [k, v] of Object.entries(req.headers)) {
-      if (["host","connection","content-length","transfer-encoding","authorization"].includes(k)) continue;
-      headers[k] = Array.isArray(v) ? v.join(", ") : (v as string);
-    }
-    if (PROXY_INJECT_HEADER) headers[PROXY_INJECT_HEADER] = sub;
-
-    const method = req.method.toUpperCase();
-    const body = !["GET","HEAD"].includes(method) && req.body ? JSON.stringify(req.body) : undefined;
-    if (body) headers["content-type"] = headers["content-type"] || "application/json";
-
-    // 4) Do the upstream fetch (consider a timeout)
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), +(process.env.PROXY_TIMEOUT_MS || 5000));
-    const upstream = await fetch(urlObj.toString(), { method, headers, body, signal: controller.signal } as any);
-    clearTimeout(t);
-
-    res.status(upstream.status);
-    upstream.headers.forEach((val, key) => {
-      if (!["content-length","transfer-encoding","connection"].includes(key)) res.setHeader(key, val);
-    });
-    const buf = Buffer.from(await upstream.arrayBuffer());
-    res.end(buf); // ✅ IMPORTANT: end the response
-  } catch (e: any) {
-    if (e?.name === "AbortError") {
-      return res.status(502).json({ error: "upstream_timeout" });
-    }
-    if (e?.www) res.setHeader("WWW-Authenticate", e.www);
-    const status = Number(e?.status) || 502;
-    console.error("[proxy:error]", e?.message || e);
-    res.status(status).json({ error: "proxy_failed", detail: String(e?.message || e) });
-  }
-});
+  });
 } else {
-  console.log("[proxy] disabled (set PROXY_TARGET to enable)");
+  console.log("[proxy] disabled (set valid PROXY_TARGET to enable)");
 }
 
-// Well-knowns
-toolGatewayRouter.get("/.well-known/oauth-protected-resource", wellKnownOauthProtectedResource);
-toolGatewayRouter.get("/.well-known/openid-configuration", toolGatewayImpl);
-toolGatewayRouter.get("/.well-known/oauth-authorization-server", toolGatewayImpl);
+// Well-knowns (rate-limited)
+toolGatewayRouter.get(
+  "/.well-known/oauth-protected-resource",
+  discoveryLimiter as any,
+  wellKnownOauthProtectedResource
+);
+toolGatewayRouter.get(
+  "/.well-known/openid-configuration",
+  discoveryLimiter as any,
+  toolGatewayImpl
+);
+toolGatewayRouter.get(
+  "/.well-known/oauth-authorization-server",
+  discoveryLimiter as any,
+  toolGatewayImpl
+);
+
 
 // MCP JSON-RPC + tool POSTs (rate limited)
 toolGatewayRouter.post("/", toolLimiter as any, toolGatewayImpl);
