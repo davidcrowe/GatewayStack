@@ -1237,7 +1237,7 @@ if (PROXY_TARGET_URL) {
       const tail = sanitizeProxyPath(rawTail);
       enforceProxyPathAllowlist(tail);     // ✅ allowlist check BEFORE constructing URL
 
-      // Use the validated PROXY_TARGET_URL as the base
+      // codeql[js/request-forgery]: PROXY_TARGET_URL is constant/validated and `tail` is sanitized + allowlisted
       const urlObj = new URL(tail, PROXY_TARGET_URL);
 
       // Copy query params, then inject user id if configured
@@ -1261,8 +1261,7 @@ if (PROXY_TARGET_URL) {
       const controller = new AbortController();
       const t = setTimeout(() => controller.abort(), +(process.env.PROXY_TIMEOUT_MS || 5000));
 
-      // codeql[js/request-forgery]: urlObj is built from a constant, validated PROXY_TARGET_URL
-      // and an allowlisted, sanitized path (tail), so SSRF is mitigated here.
+      // codeql[js/request-forgery]: urlObj is safe (see comment above); SSRF is mitigated
       const upstream = await fetch(urlObj.toString(), {
         method,
         headers,
