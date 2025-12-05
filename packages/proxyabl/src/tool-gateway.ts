@@ -1128,14 +1128,13 @@ export async function auth0LogWebhook(req: Request, res: Response) {
 }
 
 // ---- Express Router wrapper: preserves your exact paths/handlers ----
-// ---- Express Router wrapper: preserves your exact paths/handlers ----
 export const toolGatewayRouter = Router();
 
 // ===== Simple authenticated proxy with user injection =====
-const PROXY_TARGET = process.env.PROXY_TARGET || "http://127.0.0.1:3333";             // e.g. "http://localhost:3333"
-const PROXY_PREFIX = process.env.PROXY_PREFIX || "/proxy";       // e.g. "/proxy"
-const PROXY_INJECT_HEADER = process.env.PROXY_INJECT_HEADER || "";// e.g. "X-User-Id"
-const PROXY_INJECT_QUERY  = process.env.PROXY_INJECT_QUERY  || "";// e.g. "userId"
+const PROXY_TARGET = process.env.PROXY_TARGET || "http://127.0.0.1:3333"; // e.g. "http://localhost:3333"
+const PROXY_PREFIX = process.env.PROXY_PREFIX || "/proxy";               // e.g. "/proxy"
+const PROXY_INJECT_HEADER = process.env.PROXY_INJECT_HEADER || "";       // e.g. "X-User-Id"
+const PROXY_INJECT_QUERY  = process.env.PROXY_INJECT_QUERY  || "";       // e.g. "userId"
 
 // Parse and validate PROXY_TARGET once to avoid SSRF-style host smuggling
 const PROXY_TARGET_URL: URL | null = (() => {
@@ -1157,21 +1156,33 @@ const PROXY_TARGET_URL: URL | null = (() => {
   }
 })();
 
-const PROXY_ALLOWED_PATHS = (process.env.PROXY_ALLOWED_PATHS || "/").split(",")
+// Comma-separated list of allowed paths, e.g. "/api,/health"
+const PROXY_ALLOWED_PATHS = (process.env.PROXY_ALLOWED_PATHS || "/")
+  .split(",")
   .map(p => p.trim())
   .filter(Boolean);
 
-  function enforceProxyPathAllowlist(p: string): void {
-  // Require the path to start with one of the allowed prefixes
+/**
+ * Throws if the path is not in the allowlist.
+ * - Exact match: "/foo"
+ * - Prefix match: "/foo/" matches "/foo/bar", "/foo/baz", etc.
+ */
+function enforceProxyPathAllowlist(p: string): void {
+  // Ensure leading slash
+  const path = p.startsWith("/") ? p : `/${p}`;
+
   const ok = PROXY_ALLOWED_PATHS.some(prefix => {
-    // normalize: ensure prefix has leading slash
     const pref = prefix.startsWith("/") ? prefix : `/${prefix}`;
-    return p === pref || p.startsWith(pref.endsWith("/") ? pref : pref + "/");
+    if (pref.endsWith("/")) {
+      return path === pref.slice(0, -1) || path.startsWith(pref);
+    }
+    return path === pref || path.startsWith(pref + "/");
   });
 
   if (!ok) {
     const err: any = new Error("PROXY_PATH_NOT_ALLOWED");
-    err.status = 400;
+    err.status = 403;
+    err.code = "PROXY_PATH_NOT_ALLOWED";
     throw err;
   }
 }
@@ -1179,13 +1190,14 @@ const PROXY_ALLOWED_PATHS = (process.env.PROXY_ALLOWED_PATHS || "/").split(",")
 function sanitizeProxyPath(rawTail: string): string {
   let p = rawTail || "/";
 
-  // Normalize: ensure we always treat it as a path, not a URL
+  // Normalize: ensure we always treat it as a *path*, not a URL
   p = "/" + p.replace(/^\/+/, "");
 
   // Block attempts to smuggle in absolute URLs or schemes
   if (p.startsWith("//") || p.includes("://")) {
     const err: any = new Error("INVALID_UPSTREAM_PATH");
     err.status = 400;
+    err.code = "INVALID_UPSTREAM_PATH";
     throw err;
   }
 
@@ -1193,6 +1205,7 @@ function sanitizeProxyPath(rawTail: string): string {
   if (p.includes("..")) {
     const err: any = new Error("INVALID_UPSTREAM_PATH");
     err.status = 400;
+    err.code = "INVALID_UPSTREAM_PATH";
     throw err;
   }
 
@@ -1205,6 +1218,7 @@ if (PROXY_TARGET_URL) {
     prefix: PROXY_PREFIX,
     injectHeader: PROXY_INJECT_HEADER || null,
     injectQuery: PROXY_INJECT_QUERY || null,
+    allowedPaths: PROXY_ALLOWED_PATHS,
   });
 
   toolGatewayRouter.all(`${PROXY_PREFIX}/*`, async (req: Request, res: Response) => {
@@ -1218,12 +1232,15 @@ if (PROXY_TARGET_URL) {
         throw e;
       }
 
+      // Slice off the prefix and sanitize tail
       const rawTail = req.path.slice(PROXY_PREFIX.length) || "/";
-      const tail = sanitizeProxyPath(rawTail);      enforceProxyPathAllowlist(tail);
+      const tail = sanitizeProxyPath(rawTail);
+      enforceProxyPathAllowlist(tail);     // ✅ allowlist check BEFORE constructing URL
 
       // Use the validated PROXY_TARGET_URL as the base
       const urlObj = new URL(tail, PROXY_TARGET_URL);
 
+      // Copy query params, then inject user id if configured
       for (const [k, v] of Object.entries(req.query)) {
         if (Array.isArray(v)) v.forEach(x => urlObj.searchParams.append(k, String(x)));
         else if (v != null) urlObj.searchParams.append(k, String(v));
@@ -1243,12 +1260,21 @@ if (PROXY_TARGET_URL) {
 
       const controller = new AbortController();
       const t = setTimeout(() => controller.abort(), +(process.env.PROXY_TIMEOUT_MS || 5000));
-      const upstream = await fetch(urlObj.toString(), { method, headers, body, signal: controller.signal } as any);
+
+      const upstream = await fetch(urlObj.toString(), {
+        method,
+        headers,
+        body,
+        signal: controller.signal,
+      } as any);
+
       clearTimeout(t);
 
       res.status(upstream.status);
       upstream.headers.forEach((val, key) => {
-        if (!["content-length","transfer-encoding","connection"].includes(key)) res.setHeader(key, val);
+        if (!["content-length","transfer-encoding","connection"].includes(key)) {
+          res.setHeader(key, val);
+        }
       });
       const buf = Buffer.from(await upstream.arrayBuffer());
       res.end(buf);
@@ -1258,13 +1284,17 @@ if (PROXY_TARGET_URL) {
       }
       if (e?.www) res.setHeader("WWW-Authenticate", e.www);
       const status = Number(e?.status) || 502;
-      console.error("[proxy:error]", e?.message || e);
-      res.status(status).json({ error: "proxy_failed", detail: String(e?.message || e) });
+
+      // (logging fix is in section 2 below)
+      console.error("[proxy:error]", { status, code: e?.code });
+
+      res.status(status).json({ error: "proxy_failed" });
     }
   });
 } else {
   console.log("[proxy] disabled (set valid PROXY_TARGET to enable)");
 }
+
 
 // Well-knowns (rate-limited)
 toolGatewayRouter.get(
