@@ -1,14 +1,15 @@
 // packages/proxyabl/src/auth.ts
-
 import type { Request } from "express";
 import type { JWTPayload } from "jose";
 import type { ProxyablConfig } from "@gatewaystack/proxyabl-core";
 
 import {
+  verifyAccessToken,
   assertToolScopes,
   getRequiredScopesForTool,
   ProxyablAuthError,
-} from "@gatewaystack/proxyabl-core/src/auth";
+  type VerifiedAccessToken,
+} from "@gatewaystack/proxyabl-core";
 
 import {
   getGatewayContext,

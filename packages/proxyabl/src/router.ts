@@ -1,5 +1,5 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
-import type { ProxyablConfig } from "@gatewaystack/proxyabl-core";
+import type { ProxyablConfig, ToolScopesConfig } from "@gatewaystack/proxyabl-core";
 
 import {
   buildWwwAuthenticate,
@@ -317,31 +317,32 @@ async function mcpHandler(
     const identity = await ensureAuth(); // auth required, but no specific tool scopes yet
     if (!identity) return; // response already sent
 
-    const toolScopes = config.toolScopes ?? {};
+    const toolScopes: ToolScopesConfig = config.toolScopes ?? {};
 
     const tools = Object.entries(toolScopes).map(([name, scopes]) => {
-      const required = scopes ?? [];
-      const inputSchema = {
+    const required = Array.isArray(scopes) ? scopes : [];
+
+    const inputSchema = {
         $schema: "http://json-schema.org/draft-07/schema#",
         type: "object",
         additionalProperties: true,
-      };
+    };
 
-      const securitySchemes =
+    const securitySchemes =
         required.length > 0
-          ? [{ type: "oauth2" as const, scopes: required }]
-          : [{ type: "noauth" as const }];
+        ? [{ type: "oauth2" as const, scopes: required }]
+        : [{ type: "noauth" as const }];
 
-      return {
+    return {
         name,
         title: name.replace(/([A-Z])/g, " $1").trim(),
         description: name,
         inputSchema,
-        input_schema: inputSchema, // some MCP clients use snake_case
+        input_schema: inputSchema,
         requiredScopes: required,
         securitySchemes,
         executable: true,
-      };
+    };
     });
 
     res.status(200).json(

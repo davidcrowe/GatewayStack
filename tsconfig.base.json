@@ -14,20 +14,20 @@
     "types": [],
     "baseUrl": ".",
         "paths": {
-          "@gatewaystack/identifiabl-core": ["packages/identifiabl-core/src"],
-          "@gatewaystack/identifiabl": ["packages/identifiabl/src"],
+          "@gatewaystack/identifiabl-core": ["packages/identifiabl-core/dist"],
+          "@gatewaystack/identifiabl": ["packages/identifiabl/dist"],
 
           "@gatewaystack/transformabl-core": ["packages/transformabl-core/src"],
           "@gatewaystack/transformabl": ["packages/transformabl/src"],
 
-          "@gatewaystack/validatabl-core": ["packages/validatabl-core/src/index.ts"],
-          "@gatewaystack/validatabl": ["packages/validatabl/src"],
+          "@gatewaystack/validatabl-core": ["packages/validatabl-core/dist"],
+          "@gatewaystack/validatabl": ["packages/validatabl/dist"],
 
           "@gatewaystack/limitabl-core": ["packages/limitabl-core/src"],
           "@gatewaystack/limitabl": ["packages/limitabl/src"],
 
-          "@gatewaystack/proxyabl-core": ["packages/proxyabl-core/src"],
-          "@gatewaystack/proxyabl": ["packages/proxyabl/src"],
+          "@gatewaystack/proxyabl-core": ["packages/proxyabl-core/dist"],
+          "@gatewaystack/proxyabl": ["packages/proxyabl/dist"],
 
           "@gatewaystack/explicabl-core": ["packages/explicabl-core/src"],
           "@gatewaystack/explicabl": ["packages/explicabl/src"],
