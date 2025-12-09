@@ -1,4 +1,5 @@
-# GatewayStack — Agentic Control Plane for User-Scoped AI Governance
+# GatewayStack 
+## Agentic Control Plane for User-Scoped AI Governance
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue)
@@ -8,20 +9,30 @@
 
 GatewayStack is an open-source Agentic Control Plane that makes AI agents **enterprise-ready** by enforcing user-scoped identity, policy, limits, and audit trails on every model call.
 
-> **Early-stage:** GatewayStack is under active development.  
-> The first three layers — `@gatewaystack/identifiabl`, `@gatewaystack/proxyabl`, and `@gatewaystack/explicabl` — are now live on npm.  
-> Additional modules — `@gatewaystack/transformabl`, `@gatewaystack/validatabl`, and `@gatewaystack/limitabl` — are on the roadmap.
+```bash
+npm install \
+  @gatewaystack/identifiabl \
+  @gatewaystack/proxyabl \
+  @gatewaystack/explicabl \
+  @gatewaystack/request-context \
+```
 
-**The problem:**  
+> **Early-stage:** GatewayStack is under active development
+> Three layers live on npm — `@gatewaystack/identifiabl`, `@gatewaystack/proxyabl`, and `@gatewaystack/explicabl`  
+> Three layers on the roadmap — `@gatewaystack/transformabl`, `@gatewaystack/validatabl`, and `@gatewaystack/limitabl`
 
-AI models and user data need each other... but have no easy way to safely connect. 
+**The three-party problem:**  
+
+Modern AI apps involve three actors — the **user**, the **LLM**, and **your backend** — yet there is no shared identity layer binding them together. This creates data leakage, policy bypass, and audit gaps.
 
 - Users want AI to access *their* data (ChatGPT reading *my* calendar). 
 - Enterprises want to control *who* can use AI models (only doctors can use medical models, only directors can send sensitive prompts). 
 
-Both require **cryptographic proof of user identity** tied to every AI request... but AI platforms authenticate users on their side while your backend has no verified identity to enforce policies, filter data, or log actions.
+Both the LLM and your backend require **cryptographic proof of user identity** tied to every AI request... but AI platforms authenticate users on their side while your backend has no verified identity to enforce policies, filter data, or log actions. This is the [three-party problem](docs/three-party-problem.md).
 
 **GatewayStack solves this.**  
+
+GatewayStack solves this by attaching a cryptographically verified user identity to every AI request and enforcing structured governance around it.
 
 Drop GatewayStack between AI clients (ChatGPT, Claude, your own self-hosted models, MCP) and your backend. It validates OAuth tokens, enforces scopes, and injects verified identity—so you can safely answer the two questions that matter most:
 
@@ -38,6 +49,8 @@ Every AI request flows through six governance checkpoints:
 - Apply **rate limits & spend caps** per user/team/org
 - Inject **X-User-Id / X-Org-Id** into downstream services (no JWT handling there)
 - Emit **audit-ready logs** for “who did what, with which data, via which model”
+
+→ See full examples: **[docs/examples.md](docs/examples.md)**
 
 ---
 
@@ -137,27 +150,6 @@ This starts:
 - npm **10+** (or pnpm 9)
 - An **Auth0 tenant** (or equivalent OIDC provider issuing RS256 access tokens)
 - *(Optional)* Google Cloud SDK for Cloud Run deploys
-
-## The Three-Party Problem
-
-Modern AI apps involve three actors — the **user**, the **LLM**, and **your backend** — yet there is no shared identity layer binding them together. This creates data leakage, policy bypass, and audit gaps.
-
-GatewayStack solves this by attaching a cryptographically verified user identity to every AI request and enforcing structured governance around it.
-
-→ Read the full explanation:  
-**[The Three-Party Problem →](docs/three-party-problem.md)**
-
----
-
-## Examples
-
-- Enforcing who can use which models  
-- User-scoped data access (e.g., ChatGPT reading *my* calendar only)  
-- Identity injection (e.g., `X-User-Id` to downstream services)
-
-→ See full examples: **[docs/examples.md](docs/examples.md)**
-
----
 
 ### Core Governance Layers
 
