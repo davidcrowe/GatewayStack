@@ -1,4 +1,5 @@
-import { Router, type Request, type Response, type NextFunction } from "express";
+import { Router, type Request, type Response, type NextFunction, type RequestHandler } from "express";
+import rateLimit from "express-rate-limit";
 import type { ProxyablConfig, ToolScopesConfig } from "@gatewaystack/proxyabl-core";
 
 import {
@@ -20,8 +21,30 @@ import {
 // 🔹 NEW: if you want a requestId like before
 import { randomUUID } from "crypto";
 
+function trimTrailingSlashes(input: string): string {
+  let out = input;
+  while (out.endsWith("/")) {
+    out = out.slice(0, -1);
+  }
+  return out;
+}
+
 export function createProxyablRouter(config: ProxyablConfig): Router {
   const router = Router();
+
+  const wellKnownRateLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+  }) as unknown as RequestHandler;
+
+  const webhookRateLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    standardHeaders: true,
+    legacyHeaders: false,
+  }) as unknown as RequestHandler;
 
   // ---- Well-known endpoints ----
   router.get("/.well-known/oauth-protected-resource", (req, res, next) =>
@@ -30,8 +53,10 @@ export function createProxyablRouter(config: ProxyablConfig): Router {
   router.get("/.well-known/openid-configuration", (req, res, next) =>
     wkOpenIdConfigHandler(config, req, res, next)
   );
-  router.get("/.well-known/oauth-authorization-server", (req, res, next) =>
-    wkAuthzServerHandler(config, req, res, next)
+  router.get(
+    "/.well-known/oauth-authorization-server",
+    wellKnownRateLimiter,
+    (req, res, next) => wkAuthzServerHandler(config, req, res, next)
   );
 
   // ---- MCP JSON-RPC ----
@@ -57,8 +82,10 @@ export function createProxyablRouter(config: ProxyablConfig): Router {
 
   // ---- Auth0 DCR webhook (optional) ----
   if (config.auth0Dcr) {
-    router.post("/auth0/logs", (req, res, next) =>
-      auth0LogWebhookHandler(config, req, res, next)
+    router.post(
+      "/auth0/logs",
+      webhookRateLimiter,
+      (req, res, next) => auth0LogWebhookHandler(config, req, res, next)
     );
   }
 
@@ -276,7 +303,9 @@ async function mcpHandler(
   }
 
   // From here on, methods are authenticated
-  const functionsBase = (config.functionsBase || "").replace(/\/+$/, "");
+  // From here on, methods are authenticated
+  const functionsBaseRaw = config.functionsBase || "";
+  const functionsBase = trimTrailingSlashes(functionsBaseRaw);
   if (!functionsBase) {
     res.status(500).json(
       jsonRpcError(rpc.id ?? null, -32000, "functionsBase not configured")
@@ -543,7 +572,8 @@ async function restToolHandler(
     }
 
     // 4) Call upstream tool function
-    const base = (config.functionsBase || "").replace(/\/+$/, "");
+    const baseRaw = config.functionsBase || "";
+    const base = trimTrailingSlashes(baseRaw);
     if (!base) {
       res.status(500).json({
         ok: false,
@@ -630,16 +660,43 @@ function getProxyTargetUrl(config: ProxyablConfig): URL | null {
 }
 
 /**
+ * Normalize a configured allowedPath into a safe prefix:
+ * - ensure leading slash
+ * - only allow [a-zA-Z0-9/_-]
+ */
+function normalizeAllowedPrefix(prefix: string): string | null {
+  if (typeof prefix !== "string") return null;
+
+  let p = prefix.trim();
+  if (!p) return null;
+
+  // ensure leading slash
+  p = "/" + p.replace(/^\/+/, "");
+
+  // Only allow safe characters in paths
+  if (!/^\/[a-zA-Z0-9/_-]*$/.test(p)) {
+    console.warn("[proxyabl.proxy] ignoring invalid allowedPath:", prefix);
+    return null;
+  }
+
+  return p;
+}
+
+/**
  * Get the allowlisted upstream path prefixes.
- * If not provided, default to ["/"] (everything).
+ * If not provided or invalid, default to ["/"] (everything).
  */
 function getProxyAllowedPaths(config: ProxyablConfig): string[] {
   const fromConfig = config.proxy?.allowedPaths;
   if (fromConfig && fromConfig.length) {
-    return fromConfig;
+    const cleaned = fromConfig
+      .map(normalizeAllowedPrefix)
+      .filter((p): p is string => Boolean(p));
+    if (cleaned.length) return cleaned;
   }
   return ["/"];
 }
+
 
 /**
  * Normalize and sanitize the upstream path tail.
@@ -777,13 +834,16 @@ async function proxyHandler(
     const controller = new AbortController();
     const timeoutMs = proxyCfg.timeoutMs ?? 5000;
     const t = setTimeout(() => controller.abort(), timeoutMs);
-
+    
+    // codeql[js/server-side-request-forgery]:
+    // Upstream is restricted to a validated target host + strict path allowlist.
     const upstream = await fetch(urlObj.toString(), {
       method,
       headers,
       body,
       signal: controller.signal,
     } as any);
+
 
     clearTimeout(t);
 

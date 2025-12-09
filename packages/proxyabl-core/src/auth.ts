@@ -1,6 +1,7 @@
 // packages/proxyabl-core/src/auth.ts
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
 import type { ProxyablConfig } from "./config";
+import { trimTrailingSlashes } from "./config";
 
 /**
  * Normalized, verified access token surface returned by core.
@@ -44,7 +45,8 @@ export async function verifyAccessToken(
   opts: VerifyAccessTokenOptions = {},
 ): Promise<VerifiedAccessToken> {
   const issuerRaw = config.oidc.issuer;
-  const issuer = issuerRaw.replace(/\/+$/, "");
+  const issuer = trimTrailingSlashes(issuerRaw);
+
   const jwksUri = config.oidc.jwksUri ?? `${issuer}/.well-known/jwks.json`;
 
   const JWKS = createRemoteJWKSet(new URL(jwksUri));

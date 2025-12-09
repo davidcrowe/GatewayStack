@@ -6,6 +6,8 @@ import {
   type JWTVerifyGetKey,
 } from "jose";
 import type { ProxyablConfig } from "./config";
+import { trimTrailingSlashes } from "./config";
+
 
 export interface VerifiedAccessTokenPayload extends JWTPayload {
   sub?: string;
@@ -23,7 +25,7 @@ type IssuerKey = string;
 const jwksCache = new Map<IssuerKey, JWTVerifyGetKey>();
 
 function normalizeIssuer(issuer: string): string {
-  return issuer.replace(/\/+$/, "");
+  return trimTrailingSlashes(issuer);
 }
 
 function getIssuerVariants(issuerRaw: string): string[] {

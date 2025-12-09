@@ -19,6 +19,14 @@ import { testEchoRoutes } from "./routes/testEcho";
 
 import rateLimit from "express-rate-limit";
 
+function trimTrailingSlashes(input: string): string {
+  let out = input;
+  while (out.endsWith("/")) {
+    out = out.slice(0, -1);
+  }
+  return out;
+}
+
 export function buildApp(env: NodeJS.ProcessEnv) {
   // -----------------------------
   // Boot & configuration
@@ -115,24 +123,16 @@ export function buildApp(env: NodeJS.ProcessEnv) {
   // Layer 3: Mount validatabl’s PRM router early for public metadata
   // validatabl is added as added via requireScope() in the protected area below
   // -----------------------------
-  // app.use(
-  //   protectedResourceRouter({
-  //     issuer: OAUTH_ISSUER.replace(/\/+$/, ""),
-  //     audience: OAUTH_AUDIENCE,
-  //     scopes: OAUTH_SCOPES,
-  //   }) as unknown as RequestHandler
-  // );
 
   app.use(
     "/prm",
     prmLimiter,
     protectedResourceRouter({
-      issuer: OAUTH_ISSUER.replace(/\/+$/, ""),
+      issuer: trimTrailingSlashes(OAUTH_ISSUER),
       audience: OAUTH_AUDIENCE,
       scopes: OAUTH_SCOPES,
     }) as unknown as RequestHandler
   );
-
 
   // -----------------------------
   // Layer 4: limitabl (per-identity rate limiting)
@@ -167,21 +167,22 @@ export function buildApp(env: NodeJS.ProcessEnv) {
   // -----------------------------
   const proxyablConfig = proxyablConfigFromEnv(env);
 
-  // mount under /tools so you get:
-  //   /tools/.well-known/oauth-protected-resource
-  //   /tools/.well-known/openid-configuration
-  //   /tools/.well-known/oauth-authorization-server
-  //   /tools/mcp
-  //   /tools/:toolName
-  //   /tools/proxy/*
-  //   /tools/auth0/logs
+  // Rate limiter for /tools (satisfies CodeQL, reasonable defaults)
+  const toolsRateLimiter = rateLimit({
+    windowMs,
+    max: limit * 10, // more generous than per-user limitabl
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
 
   // /tools pipeline:
   //   GatewayContext (already set globally)
+  //   → toolsRateLimiter
   //   → identifiabl (JWT → ctx.identity)
   //   → proxyabl router (scopes + routing)
   app.use(
     "/tools",
+    toolsRateLimiter,
     identifiablMiddleware,
     createProxyablRouter(proxyablConfig) as unknown as RequestHandler
   );

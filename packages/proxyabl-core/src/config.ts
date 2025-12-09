@@ -138,6 +138,14 @@ export interface EnvLike {
   [key: string]: string | undefined;
 }
 
+export function trimTrailingSlashes(input: string): string {
+  let out = input;
+  while (out.endsWith("/")) {
+    out = out.slice(0, -1);
+  }
+  return out;
+}
+
 /**
  * Builds a ProxyablConfig from process.env-style variables.
  * This is a convenience for apps that prefer env-driven configuration.
@@ -147,7 +155,7 @@ export interface EnvLike {
  */
 export function configFromEnv(env: EnvLike = process.env): ProxyablConfig {
   const rawIssuer = env.OAUTH_ISSUER ?? "https://YOUR_TENANT.us.auth0.com/";
-  const issuerTrimmed = rawIssuer.replace(/\/+$/, "");
+  const issuerTrimmed = trimTrailingSlashes(rawIssuer);
 
   const oidc: OidcConfig = {
     issuer: issuerTrimmed,
@@ -157,9 +165,10 @@ export function configFromEnv(env: EnvLike = process.env): ProxyablConfig {
 
   const toolScopes = parseToolScopesJson(env.TOOL_SCOPES_JSON);
 
-  const functionsBase = (env.FUNCTIONS_BASE ??
-    "https://us-central1-<YOUR_PROJECT_ID>.cloudfunctions.net"
-  ).replace(/\/+$/, "");
+  const rawFunctionsBase =
+    env.FUNCTIONS_BASE ??
+    "https://us-central1-<YOUR_PROJECT_ID>.cloudfunctions.net";
+  const functionsBase = trimTrailingSlashes(rawFunctionsBase);
 
   const appOrigin = env.APP_ORIGIN || "*";
 
