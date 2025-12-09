@@ -852,6 +852,7 @@ async function proxyHandler(
     const timeoutMs = proxyCfg.timeoutMs ?? 5000;
     const t = setTimeout(() => controller.abort(), timeoutMs);
 
+    // codeql[js/server-side-request-forgery]: upstream URL is constrained by a validated baseUrl + strict path allowlist; tail is sanitized to disallow protocols, hostnames, and traversal.
     const upstream = await fetch(urlObj.toString(), {
       method,
       headers,
