@@ -1,6 +1,3 @@
-# GatewayStack 
-## Agentic Control Plane for User-Scoped AI Governance
-
 <p align="center">
   <img src="./assets/gatewaystack-banner.png" alt="GatewayStack banner" />
 </p>
@@ -22,7 +19,7 @@
 
 <p align="center"><strong>Trust and governance layer between users, LLMs, and your backend</strong></p>
 
-<p align="center">Make AI agent tool calls <strong>enterprise-ready</strong> by enforcing verified identity, authorization, limits, routing, & auditing.</p>
+<p align="center">Make AI agent tool calls <strong>enterprise-ready</strong> by enforcing verified identity, authorization, limits, routing, & auditing</p>
 
 <p align="center">
   <strong><a href="https://github.com/davidcrowe/gatewaystack-chatgpt-starter">Reference implementation</a></strong>
@@ -194,7 +191,6 @@ app.listen(8080, () => {
 ```
 
 Run it:
-Run it:
 
 ```bash
 npx ts-node app.ts
@@ -221,8 +217,6 @@ npx ts-node app.ts
 Clone the repo and run the reference gateway:
 
 ```bash
-git clone https://github.com/davidcrowe/GatewayStack
-cd GatewayStack
 git clone https://github.com/davidcrowe/GatewayStack
 cd GatewayStack
 npm install

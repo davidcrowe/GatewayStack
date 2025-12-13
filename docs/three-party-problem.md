@@ -1,7 +1,5 @@
 ## The Three-Party Problem
 
-> Read more about the [Three-Party Problem](https://reducibl.com/2025/12/01/the-three-party-identity-problem-in-mcp-servers.html)
-
 Modern AI apps are really **three-party systems**:
 
 **1 - The User** — a real human with identity, roles, and permissions  
@@ -22,6 +20,8 @@ These three parties all talk to each other, but they don’t share a common, cry
 - Enterprises block AI access entirely (too risky)
 
 This instability across user ↔ LLM ↔ backend is what Gatewaystack calls the **Three-Party Problem**. 
+
+> Read more about the [Three-Party Problem](https://reducibl.com/2025/12/01/the-three-party-identity-problem-in-mcp-servers.html)
 
 ### Practical Metaphor - LLM as a Financial Advisor
 
