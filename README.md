@@ -1,5 +1,7 @@
 # GatewayStack 
 ## Agentic Control Plane for User-Scoped AI Governance
+# GatewayStack 
+## Agentic Control Plane for User-Scoped AI Governance
 
 <p align="center">
   <img src="./assets/gatewaystack-banner.png" alt="GatewayStack banner" />
@@ -66,6 +68,7 @@ Modern AI apps involve three actors — the **user**, the **LLM**, and **your ba
 ```
 
 - Users want AI to access *their* data (ChatGPT reading *my* calendar). 
+- Enterprises want to control *who* can use AI models (only doctors can use medical models, only directors can send sensitive prompts). 
 - Enterprises want to control *who* can use AI models (only doctors can use medical models, only directors can send sensitive prompts). 
 
 Both the LLM and your backend require **cryptographic proof of user identity** tied to every AI request... but AI platforms authenticate users on their side while your backend has no verified identity to enforce policies, filter data, or log actions.
@@ -173,12 +176,39 @@ app.use("/tools", createProxyablRouter(configFromEnv(process.env)));
 
 app.listen(8080, () => {
   console.log("GatewayStack running on :8080");
+
+// 2. Log every request
+app.use(explicablLoggingMiddleware(createConsoleLogger()));
+
+// 3. Require verified RS256 token
+app.use(identifiabl({
+  issuer: process.env.OAUTH_ISSUER!,
+  audience: process.env.OAUTH_AUDIENCE!,
+  jwksUri: process.env.OAUTH_JWKS_URI
+}));
+
+// 4. Route /tools to your tool/model backends
+app.use("/tools", createProxyablRouter(configFromEnv(process.env)));
+
+app.listen(8080, () => {
+  console.log("GatewayStack running on :8080");
 });
 ```
 
 Run it:
+Run it:
 
 ```bash
+npx ts-node app.ts
+# or:
+# npx tsx app.ts
+# or compile with tsc and run:
+# npx tsc && node dist/app.js
+```
+
+## Quickstart — CLI
+
+Clone the repo and run the reference gateway:
 npx ts-node app.ts
 # or:
 # npx tsx app.ts
@@ -193,9 +223,16 @@ Clone the repo and run the reference gateway:
 ```bash
 git clone https://github.com/davidcrowe/GatewayStack
 cd GatewayStack
+git clone https://github.com/davidcrowe/GatewayStack
+cd GatewayStack
 npm install
 npm run dev
 ```
+
+This starts:
+
+- Gateway server on :8080
+- Admin UI on :5173 (visualizes /health)
 
 This starts:
 
@@ -294,10 +331,20 @@ This starts:
 - [Deployment](docs/deployment.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [Production checklist](docs/production-checklist.md)
+## Docs
+
+- [The Three-Party Problem](docs/three-party-problem.md)
+- [Examples](docs/examples.md)
+- [Demos](docs/demo.md)
+- [Environment & health endpoints](docs/operations.md)
+- [Deployment](docs/deployment.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Production checklist](docs/production-checklist.md)
 
 ## Testing
 
 Run the full test suite:
+
 
 ```bash
 npm test
@@ -305,6 +352,12 @@ npm test
 
 This runs Vitest plus the conformance report writer that updates `docs/conformance.json`.
 
+## Contributing
+
+- Run the tests: `npm test`
+- Read [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- Report issues on [GitHub Issues](https://github.com/davidcrowe/GatewayStack/issues)
+- Star the repo if GatewayStack helps you
 ## Contributing
 
 - Run the tests: `npm test`

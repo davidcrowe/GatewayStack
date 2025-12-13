@@ -140,6 +140,8 @@ export function explicablLoggingMiddleware(
  * - logging/audit webhooks
  *
  * This preserves your existing behavior.
+ *
+ * This preserves your existing behavior.
  */
 export function explicablRouter(env: NodeJS.ProcessEnv): RequestHandler {
   const r = Router();
@@ -150,8 +152,11 @@ export function explicablRouter(env: NodeJS.ProcessEnv): RequestHandler {
   // Webhooks (auth0 logs, etc.)
   // NOTE: auth0LogsWebhook is already a RequestHandler in your current code,
   // so we do NOT call it as a function here.
+  // NOTE: auth0LogsWebhook is already a RequestHandler in your current code,
+  // so we do NOT call it as a function here.
   r.use("/webhooks/auth0", auth0LogsWebhook as unknown as RequestHandler);
 
   // Important: cast router to RequestHandler
   return r as unknown as RequestHandler;
 }
+
