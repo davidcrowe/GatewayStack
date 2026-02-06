@@ -12,7 +12,7 @@ import {
 
 export interface IdentifiablConfig {
   issuer: string;
-  audience: string;
+  audience: string | string[];
   jwksUri?: string;
 
   // Optional overrides, but we set good defaults for GatewayStack:
