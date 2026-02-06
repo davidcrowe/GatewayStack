@@ -239,33 +239,6 @@ This starts:
 - An **Auth0 tenant** (or equivalent OIDC provider issuing RS256 access tokens)
 - *(Optional)* Google Cloud SDK for Cloud Run deploys
 
-### Core Governance Layers
-
-| Layer         | Status | Purpose |
-|---------------|--------|---------|
-| **identifiabl**  | ✅ | Trust & Identity Binding (verifies RS256 JWTs) |
-| **transformabl** | ⚪ | Content safety preprocessing (redaction, normalization) |
-| **validatabl**   | ⚪ | Authorization & scope-based policy enforcement |
-| **limitabl**     | ⚪ | Rate & spend governance per user/tenant |
-| **proxyabl**     | ✅ | Identity-aware routing for tools/models |
-| **explicabl**    | ✅ | Audit-grade request logging & health endpoints |
-
-### GatewayStack vs Traditional API Gateways
-
-| Feature | Kong/Apigee/AWS API Gateway | GatewayStack |
-|---------|---------------------------|--------------|
-| **JWT validation** | ✅ Built-in | ✅ Built-in |
-| **Rate limiting** | ✅ Built-in | ✅ Built-in |
-| **Path/method routing** | ✅ Built-in | ✅ Built-in |
-| **User identity normalization** | ❌ Manual (custom plugin) | ✅ Built-in |
-| **Three-party identity binding (LLM → backend)** | ❌ (custom logic) | ✅ Built-in |
-| **Per-tool scope enforcement** | ❌ Manual (custom policy) | ✅ Built-in |
-| **Apps SDK / MCP compliance** | ❌ Manual (PRM endpoint) | ✅ Built-in |
-| **Pre-flight cost checks** | ❌ Manual (custom plugin) | ✅ Roadmap |
-| **Model-specific policies** | ❌ Manual (custom logic) | ✅ Built-in |
-| **AI audit trails** | ❌ Manual (log forwarding) | ✅ Built-in |
-| **Setup time** | 100+ hours (custom dev) | 2 hours (config) |
-
 ## Repository layout
 
 | Path | Highlights |
@@ -277,6 +250,18 @@ This starts:
 | `tools/` | Supporting utilities (echo server, mock tool backend, Cloud Run deploy helper, smoke harnesses). |
 | `tests/` | Vitest entry points and placeholder smoke tests for parity. |
 | `docs/` | Auth0 walkthroughs, conformance output, endpoint references, troubleshooting notes. |
+
+### Core Governance Layers (and GatewayStack packages)
+
+| Layer         | Status | Purpose |
+|---------------|--------|---------|
+| **identifiabl**  | ✅ | Trust & Identity Binding (verifies RS256 JWTs) |
+| **transformabl** | ⚪ | Content safety preprocessing (redaction, normalization) |
+| **validatabl**   | ⚪ | Authorization & scope-based policy enforcement |
+| **limitabl**     | ⚪ | Rate & spend governance per user/tenant |
+| **proxyabl**     | ✅ | Identity-aware routing for tools/models |
+| **explicabl**    | ✅ | Audit-grade request logging & health endpoints |
+
 
 ### Package breakdown
 
@@ -299,6 +284,22 @@ This starts:
 - `@gatewaystack/compat` – **Interop & Parity Harness.** Legacy/test router that mirrors the original `/echo` shape for quick interoperability and regression testing.
 
 - `@gatewaystack/request-context`, `@gatewaystack/integrations`, and additional `*-core` folders – Shared types, RequestContext helpers, and staging areas for upcoming connectors as the Agentic Control Plane expands.
+
+### GatewayStack vs Traditional API Gateways
+
+| Feature | Kong/Apigee/AWS API Gateway | GatewayStack |
+|---------|---------------------------|--------------|
+| **JWT validation** | ✅ Built-in | ✅ Built-in |
+| **Rate limiting** | ✅ Built-in | ✅ Built-in |
+| **Path/method routing** | ✅ Built-in | ✅ Built-in |
+| **User identity normalization** | ❌ Manual (custom plugin) | ✅ Built-in |
+| **Three-party identity binding (LLM → backend)** | ❌ (custom logic) | ✅ Built-in |
+| **Per-tool scope enforcement** | ❌ Manual (custom policy) | ✅ Built-in |
+| **Apps SDK / MCP compliance** | ❌ Manual (PRM endpoint) | ✅ Built-in |
+| **Pre-flight cost checks** | ❌ Manual (custom plugin) | ✅ Roadmap |
+| **Model-specific policies** | ❌ Manual (custom logic) | ✅ Built-in |
+| **AI audit trails** | ❌ Manual (log forwarding) | ✅ Built-in |
+| **Setup time** | 100+ hours (custom dev) | 2 hours (config) |
 
 ## Docs
 
