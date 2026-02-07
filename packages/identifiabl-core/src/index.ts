@@ -34,7 +34,7 @@ export interface GatewayIdentity {
 
 export interface IdentifiablCoreConfig {
   issuer: string;
-  audience: string;
+  audience: string | string[];
   jwksUri?: string;
   source?: IdentitySource;
   tenantClaim?: string;

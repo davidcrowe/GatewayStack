@@ -27,11 +27,8 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Show TS config for validatabl
-        run: npx tsc --showConfig -p packages/validatabl
-
-      - name: Trace module resolution for validatabl
-        run: npx tsc -p packages/validatabl --traceResolution
-
       - name: Build TypeScript monorepo
         run: npm run build
+
+      - name: Run tests
+        run: npm test

@@ -151,7 +151,9 @@ export function buildApp(env: NodeJS.ProcessEnv) {
   // -----------------------------
   // Layer 4: limitabl (per-identity rate limiting)
   // -----------------------------
-  const limitablMiddleware = limitabl({ windowMs, limit });
+  const limitablMiddleware = limitabl({
+    rateLimit: { windowMs, maxRequests: limit },
+  });
 
   // -----------------------------
   // Protected area pipeline:

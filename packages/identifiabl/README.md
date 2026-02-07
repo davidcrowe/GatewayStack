@@ -79,12 +79,12 @@ app.get('/protected/data', (req, res) => {
 |--------|------|-------------|---------|
 | `issuer` | `string` | OAuth issuer (must match token `iss`) | `https://tenant.auth0.com/` |
 | `audience` | `string` | API identifier (must match token `aud`) | `https://gateway.local/api` |
-| `jwksUri` | `string` | JWKS endpoint for public keys | `https://tenant.auth0.com/.well-known/jwks.json` |
 
 ### Optional Options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
+| `jwksUri` | `string` | `${issuer}/.well-known/jwks.json` | JWKS endpoint (auto-derived from issuer) |
 | `enforceAlg` | `string` | `'RS256'` | Require specific JWT algorithm |
 | `jwksCacheMs` | `number` | `3600000` (1h) | How long to cache JWKS keys |
 | `jwksTimeout` | `number` | `5000` (5s) | JWKS fetch timeout |

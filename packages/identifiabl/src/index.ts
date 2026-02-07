@@ -6,17 +6,17 @@ import {
 } from "@gatewaystack/request-context";
 import {
   createIdentifiablVerifier as coreCreateIdentifiablVerifier,
-  // (optional) re-export types from core if you want
-  // type IdentifiablResult,
-} from "identifiabl";
+  type IdentifiablCoreConfig,
+  type IdentitySource,
+} from "@gatewaystack/identifiabl-core";
 
 export interface IdentifiablConfig {
   issuer: string;
-  audience: string;
+  audience: string | string[];
   jwksUri?: string;
 
   // Optional overrides, but we set good defaults for GatewayStack:
-  source?: string;
+  source?: IdentitySource;
   scopeClaim?: string;
   roleClaim?: string;
   tenantClaim?: string;
@@ -35,14 +35,13 @@ export interface IdentifiablConfig {
  * a verifier that returns an identity usable as a GatewayIdentity.
  */
 export function createIdentifiablVerifier(config: IdentifiablConfig) {
-  return coreCreateIdentifiablVerifier({
-    // 👇 GatewayStack defaults
+  const coreConfig: IdentifiablCoreConfig = {
     source: "auth0",
     scopeClaim: "scope",
     roleClaim: "permissions",
-    // allow callers to override if needed
     ...config,
-  });
+  };
+  return coreCreateIdentifiablVerifier(coreConfig);
 }
 
 /**

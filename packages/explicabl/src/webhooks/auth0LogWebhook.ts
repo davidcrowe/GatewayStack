@@ -53,6 +53,7 @@ const auth0WebhookLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: webhookKeyFromReq,
+  validate: { keyGeneratorIpFallback: false },
 });
 
 // bridge the type mismatch between express-rate-limit and this package’s express types

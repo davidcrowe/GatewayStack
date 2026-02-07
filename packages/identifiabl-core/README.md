@@ -1,14 +1,15 @@
 # @gatewaystack/identifiabl-core
 
-> **Experimental** – core identity verification helper used by GatewayStack.  
-> Verifies RS256 JWTs against a JWKS endpoint and maps them into a normalized `GatewayIdentity` object.
+Core identity verification for GatewayStack.
+Verifies RS256 JWTs against a JWKS endpoint and maps them into a normalized `GatewayIdentity` object.
 
 `@gatewaystack/identifiabl-core` is a small, framework-agnostic helper for:
 
 - Verifying RS256 JWTs with `jose` and a remote JWKS URL
 - Enforcing `iss` (issuer) and `aud` (audience)
 - Normalizing identity claims (`sub`, `email`, `name`, tenant, roles, scopes, plan)
-- Returning a consistent `VerifyResult` you can plug into Gateways, middlewares, or Firebase Functions
+- Returning a consistent `VerifyResult` you can plug into gateways, middlewares, or Firebase Functions
+- Multi-audience support (verify tokens for different API identifiers)
 
 ---
 
@@ -332,10 +333,6 @@ Uses `jose` under the hood:
 - `clockTolerance: "60s"` to allow for small clock skew
 
 Currently focused on RS256 JWTs; other algorithms are intentionally not allowed.
-
-## Status
-
-This package is pre-1.0 and may change as GatewayStack evolves. If you try it and run into issues, please open an issue or PR in the main GatewayStack repo.
 
 ## Related
 

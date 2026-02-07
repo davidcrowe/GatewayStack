@@ -1,50 +1,122 @@
-import type { RequestHandler } from "express";
-import rateLimit from "express-rate-limit";
-import type { Request } from "express";
+// packages/limitabl/src/index.ts
+//
+// Express middleware for the limitabl governance layer.
+// Two-phase model: pre-flight middleware + post-execution recorder.
 
-export interface LimitablConfig {
+import type { RequestHandler } from "express";
+import type { Request } from "express";
+import {
+  LimitablEngine,
+  type LimitablCoreConfig,
+  type LimitKey,
+  type UsageRecord,
+} from "@gatewaystack/limitabl-core";
+
+export type { LimitablCoreConfig, LimitKey, UsageRecord };
+
+export interface LimitablConfig extends LimitablCoreConfig {
   /**
-   * Rate limit window in milliseconds.
-   * e.g. 60000 for 1 minute
+   * Extract the workflow ID from the request (for agent guard).
+   * Default: reads from req.header("x-workflow-id").
    */
-  windowMs: number;
-  /**
-   * Max number of requests per window.
-   */
-  limit: number;
+  extractWorkflowId?: (req: any) => string | undefined;
 }
 
-function keyFromReq(req: Request): string {
-  const xf = req.get?.("x-forwarded-for");
-  if (typeof xf === "string") {
-    // Take first IP in X-Forwarded-For
-    return xf.split(",")[0].trim();
-  }
+// Singleton engine per config (middleware is typically created once at startup)
+let _engine: LimitablEngine | null = null;
 
-  // Fallbacks
-  return (
-    (req.ip as string) ||
-    // @ts-ignore – older Express types
-    (req.connection && (req.connection as any).remoteAddress) ||
-    "unknown"
-  );
+function getEngine(config: LimitablCoreConfig): LimitablEngine {
+  if (!_engine) {
+    _engine = new LimitablEngine(config);
+  }
+  return _engine;
+}
+
+function keyFromReq(req: Request): LimitKey {
+  const user = (req as any).user;
+  const xf = req.get?.("x-forwarded-for");
+  const ip = xf
+    ? xf.split(",")[0].trim()
+    : (req.ip as string) ?? "unknown";
+
+  return {
+    sub: user?.sub,
+    orgId: user?.org_id,
+    ip,
+    tenantId: (req as any).tenantId,
+  };
 }
 
 /**
- * Express middleware that applies a per-identity rate limit:
- *  - Prefer req.user.sub
- *  - Fallback to req.user.org_id
- *  - Fallback to IP address
+ * Phase 1: Pre-flight middleware.
+ * Checks rate limits, budgets, and agent guard before the request proceeds.
+ *
+ * Attach to routes AFTER identifiabl (needs req.user).
  */
 export function limitabl(config: LimitablConfig): RequestHandler {
-  const limiter = rateLimit({
-    windowMs: config.windowMs,
-    limit: config.limit,
-    keyGenerator: (req: any) =>
-      req.user?.sub || req.user?.org_id || keyFromReq(req),
-    standardHeaders: true,
-    legacyHeaders: false,
-  });
+  const engine = getEngine(config);
 
-  return limiter as unknown as RequestHandler;
+  return (req: any, res, next) => {
+    const key = keyFromReq(req);
+    const workflowId = config.extractWorkflowId
+      ? config.extractWorkflowId(req)
+      : req.header?.("x-workflow-id") ?? undefined;
+
+    const result = engine.preflight(key, { workflowId });
+
+    if (!result.allowed) {
+      const status = result.rateLimit ? 429 : 403;
+      const headers: Record<string, string> = {};
+      if (result.rateLimit?.retryAfterSec) {
+        headers["Retry-After"] = String(result.rateLimit.retryAfterSec);
+      }
+      res.set(headers);
+      return res.status(status).json({
+        error: "limit_exceeded",
+        message: result.reason,
+        rateLimit: result.rateLimit,
+        budget: result.budget,
+        agentGuard: result.agentGuard,
+      });
+    }
+
+    // Attach rate limit headers
+    if (result.rateLimit) {
+      res.set("X-RateLimit-Remaining", String(result.rateLimit.remaining));
+      res.set("X-RateLimit-Reset", String(result.rateLimit.resetAt));
+    }
+
+    // Attach engine + key for post-execution recording
+    req._limitablEngine = engine;
+    req._limitablKey = key;
+    req._limitablWorkflowId = workflowId;
+
+    return next();
+  };
 }
+
+/**
+ * Phase 2: Record usage after execution.
+ * Call this in your tool handler or response middleware.
+ */
+export function recordUsage(req: any, usage: Omit<UsageRecord, "timestamp">): void {
+  const engine: LimitablEngine | undefined = req._limitablEngine;
+  const key: LimitKey | undefined = req._limitablKey;
+  const workflowId: string | undefined = req._limitablWorkflowId;
+
+  if (!engine || !key) return;
+
+  engine.recordUsage({
+    key,
+    workflowId,
+    usage: { ...usage, timestamp: Date.now() },
+  });
+}
+
+// Re-export core for direct access
+export {
+  LimitablEngine,
+  InMemoryRateLimiter,
+  InMemoryBudgetTracker,
+  AgentGuard,
+} from "@gatewaystack/limitabl-core";

@@ -1,7 +1,21 @@
+# Three-Party Problem
+
+## Two Directions, Same Problem
+
+The Three-Party Problem manifests in two critical ways:
+
+1. **Enterprises controlling model access** (user → backend → LLM)  
+   *"Only doctors can use medical models"*
+
+2. **Users accessing their own data** (user → LLM → backend)  
+   *"Show me MY calendar, not everyone's"*
+
+Both require the same solution: **cryptographic user identity on every request**.
+
 ### Direction 1: Enterprises controlling who can use which models and tools
 *"How do I ensure only **licensed doctors** use medical models, only **analysts** access financial data, and **contractors** can't send sensitive prompts?"*
 
-> user ↔ backend ↔ LLM
+> user → backend → LLM
 
 **Without Gatewaystack:**
 ```typescript
@@ -44,12 +58,62 @@ app.post('/chat', async (req, res) => {
 
 The gateway enforces role + scope checks **before** forwarding to your backend. If a nurse tries to use `gpt-4-medical`, they get `403 Forbidden`.
 
+
+```
+    USER                    BACKEND                    LLM
+  (Doctor)              (Your API)              (OpenAI/Claude)
+     │                       │                         │
+     │  "Use medical model"  │                         │
+     ├──────────────────────►│                         │
+     │                       │   Shared API Key        │
+     │                       ├────────────────────────►│
+     │                       │                         │
+     │                       │ ❌ No identity proof    │
+     │                       │ ❌ Can't verify role    │
+     │                       │ ❌ Anyone can access    │
+     │                       │                         │
+     │                       │◄────────────────────────┤
+     │◄──────────────────────┤      Response           │
+     │                       │                         │
+```
+
+**Problem:** Backend can't enforce "only doctors use medical models"
+
+
+```
+    USER              GATEWAYSTACK           BACKEND           LLM
+  (Doctor)           (Identity +          (Your API)      (OpenAI/
+                      Policy Layer)                        Claude)
+     │                    │                   │               │
+     │  OAuth token       │                   │               │
+     ├───────────────────►│                   │               │
+     │                    │                   │               │
+     │                    │ ✓ Verify identity │               │
+     │                    │ ✓ Check role      │               │
+     │                    │ ✓ Check scopes    │               │
+     │                    │                   │               │
+     │                    │ X-User-Id: 123    │               │
+     │                    │ X-Role: doctor    │               │
+     │                    ├──────────────────►│               │
+     │                    │                   │               │
+     │                    │                   │ Verified ID   │
+     │                    │                   ├──────────────►│
+     │                    │                   │               │
+     │                    │                   │◄──────────────┤
+     │                    │◄──────────────────┤   Response    │
+     │◄───────────────────┤                   │               │
+     │                    │                   │               │
+```
+
+**Result:** ✅ Role-based access enforced  
+✅ Audit trail: "Dr. Smith used gpt-4-medical at 2:15pm"
+
 ---
 
 ### Direction 2: Users accessing their own data via AI
 *"How do I let ChatGPT read **my** calendar without exposing **everyone's** calendar?"*
 
-> user ↔ LLM ↔ backend
+> user → LLM → backend
 
 **Without Gatewaystack:**
 ```typescript
@@ -92,3 +156,60 @@ Attaching a cryptographically confirmed user identity to a shared request contex
 * Drop-in between AI clients and your backend (no SDK changes)
 
 Gatewaystack is composed of modular packages that can run **standalone** or as a cohesive **six-layer pipeline** for complete AI governance.
+
+```
+    USER                    LLM                     BACKEND
+  (Alice)              (ChatGPT)               (Calendar API)
+     │                      │                         │
+     │ "Show my calendar"   │                         │
+     ├─────────────────────►│                         │
+     │                      │                         │
+     │  (Alice logged in    │   GET /calendar         │
+     │   to ChatGPT)        │   Shared API Key        │
+     │                      ├────────────────────────►│
+     │                      │                         │
+     │                      │ ❌ No user identity     │
+     │                      │ ❌ Can't filter         │
+     │                      │                         │
+     │                      │◄────────────────────────┤
+     │                      │  Returns EVERYONE's     │
+     │                      │  calendar events!       │
+     │◄─────────────────────┤                         │
+     │  Shows all events    │                         │
+```
+
+**Problem:** Backend returns everyone's data (data leakage)
+
+
+```
+    USER                    LLM              GATEWAYSTACK      BACKEND
+  (Alice)              (ChatGPT)           (Identity         (Calendar
+                                            Injection)         API)
+     │                      │                    │               │
+     │ "Show my calendar"   │                    │               │
+     ├─────────────────────►│                    │               │
+     │                      │                    │               │
+     │  (Alice logged in    │  OAuth token       │               │
+     │   to ChatGPT)        │  for Alice         │               │
+     │                      ├───────────────────►│               │
+     │                      │                    │               │
+     │                      │                    │ ✓ Verify      │
+     │                      │                    │   Alice's ID  │
+     │                      │                    │               │
+     │                      │                    │ GET /calendar │
+     │                      │                    │ X-User-Id:    │
+     │                      │                    │   alice_123   │
+     │                      │                    ├──────────────►│
+     │                      │                    │               │
+     │                      │                    │               │ filter by
+     │                      │                    │               │ alice_123
+     │                      │                    │◄──────────────┤
+     │                      │◄───────────────────┤ Alice's       │
+     │◄─────────────────────┤  events only       │ events only   │
+     │  Shows only          │                    │               │
+     │  Alice's events      │                    │               │
+```
+
+**Result:** ✅ Per-user data filtering  
+✅ Cryptographically verified identity  
+✅ Audit trail: "Alice accessed her calendar via ChatGPT"

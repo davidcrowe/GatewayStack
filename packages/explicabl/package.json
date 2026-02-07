@@ -1,7 +1,8 @@
 {
   "name": "@gatewaystack/explicabl",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "private": false,
+  "license": "MIT",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
