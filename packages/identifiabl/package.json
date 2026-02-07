@@ -16,6 +16,7 @@
   ],
   "dependencies": {
     "jose": "^5.0.0",
+    "@gatewaystack/identifiabl-core": "^0.1.0",
     "@gatewaystack/request-context": "^0.0.6"
   },
   "peerDependencies": {

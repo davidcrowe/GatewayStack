@@ -17,20 +17,20 @@
           "@gatewaystack/identifiabl-core": ["packages/identifiabl-core/dist"],
           "@gatewaystack/identifiabl": ["packages/identifiabl/dist"],
 
-          "@gatewaystack/transformabl-core": ["packages/transformabl-core/src"],
-          "@gatewaystack/transformabl": ["packages/transformabl/src"],
+          "@gatewaystack/transformabl-core": ["packages/transformabl-core/dist"],
+          "@gatewaystack/transformabl": ["packages/transformabl/dist"],
 
           "@gatewaystack/validatabl-core": ["packages/validatabl-core/dist"],
           "@gatewaystack/validatabl": ["packages/validatabl/dist"],
 
-          "@gatewaystack/limitabl-core": ["packages/limitabl-core/src"],
-          "@gatewaystack/limitabl": ["packages/limitabl/src"],
+          "@gatewaystack/limitabl-core": ["packages/limitabl-core/dist"],
+          "@gatewaystack/limitabl": ["packages/limitabl/dist"],
 
           "@gatewaystack/proxyabl-core": ["packages/proxyabl-core/dist"],
           "@gatewaystack/proxyabl": ["packages/proxyabl/dist"],
 
-          "@gatewaystack/explicabl-core": ["packages/explicabl-core/src"],
-          "@gatewaystack/explicabl": ["packages/explicabl/src"],
+          "@gatewaystack/explicabl-core": ["packages/explicabl-core/dist"],
+          "@gatewaystack/explicabl": ["packages/explicabl/dist"],
 
           "@gatewaystack/request-context": ["packages/request-context/src/index.ts"],
           "@gatewaystack/request-context/*": ["packages/request-context/src/*"],
