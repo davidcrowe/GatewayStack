@@ -27,8 +27,9 @@ const BUILTIN_PATTERNS: PiiPattern[] = [
   },
   {
     type: "phone",
-    // US phone numbers: (xxx) xxx-xxxx, xxx-xxx-xxxx, xxx.xxx.xxxx, +1xxxxxxxxxx
-    pattern: /(?:\+1[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?)?\d{3}[-.\s]?\d{4}/g,
+    // US phone numbers (10+ digits): (xxx) xxx-xxxx, xxx-xxx-xxxx, +1xxxxxxxxxx
+    // Requires area code (3 digits) + 7-digit number to avoid matching short numbers
+    pattern: /(?:\+1[-.\s]?)\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b|\b\(?\d{3}\)?[-.\s]\d{3}[-.\s]?\d{4}\b/g,
   },
   {
     type: "ssn",
@@ -37,8 +38,9 @@ const BUILTIN_PATTERNS: PiiPattern[] = [
   },
   {
     type: "credit_card",
-    // Major card formats (Visa, MC, Amex, Discover) with optional separators
-    pattern: /\b(?:4\d{3}|5[1-5]\d{2}|3[47]\d{2}|6(?:011|5\d{2}))[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b/g,
+    // Major card formats: Visa (13-19), MC (16), Amex (15), Discover (16), Diners (14)
+    // Matches 13-19 digit sequences with optional separators (space or dash)
+    pattern: /\b(?:4\d{3}|5[1-5]\d{2}|3[47]\d{2}|6(?:011|5\d{2})|3(?:0[0-5]|[68]\d)\d)[-\s]?\d{4,6}[-\s]?\d{4,5}(?:[-\s]?\d{1,4})?\b/g,
   },
   {
     type: "ip_address",
