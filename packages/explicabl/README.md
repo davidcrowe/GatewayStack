@@ -12,25 +12,18 @@ This is the **MVP implementation**, focused on being simple, predictable, and pr
 
 ---
 
-## ✨ Features
+## Features
 
-- 🔹 **Single structured JSON event per request**
-- 🔹 Includes:
-  - HTTP metadata (method, path, status, latency)
-  - Optional `requestId`
-  - Optional context (identity, routing, limits, etc.)
-- 🔹 **Safe**: logging failures never break responses
-- 🔹 **Zero dependencies** beyond Express
-- 🔹 **Pluggable logger function**
-- 🔹 Ships with a **console logger** (`createConsoleLogger`)
-- 🔹 Compatible with:
-  - `@gatewaystack/request-context`
-  - `@gatewaystack/identifiabl`
-  - `@gatewaystack/proxyabl`
+- **Single structured JSON event per request**
+- Includes HTTP metadata (method, path, status, latency), request ID, and context (identity, routing, limits)
+- **Safe** — logging failures never break responses
+- **Zero dependencies** beyond Express
+- **Pluggable logger function** with built-in console logger (`createConsoleLogger`)
+- Compatible with `@gatewaystack/request-context`, `@gatewaystack/identifiabl`, `@gatewaystack/proxyabl`
 
 ---
 
-## 📦 Installation
+## Installation
 
 ```bash
 npm install @gatewaystack/explicabl
@@ -38,7 +31,7 @@ npm install @gatewaystack/explicabl
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Create a logger
 
@@ -67,7 +60,7 @@ Explicabl will now emit one event for every request:
 
 ---
 
-## 🧩 API
+## API
 
 ### `createConsoleLogger(config)`
 
@@ -101,7 +94,7 @@ app.use("/explicabl", explicablRouter(process.env));
 
 ---
 
-## 📄 Event Format (`ExplicablEvent`)
+## Event Format (`ExplicablEvent`)
 
 ```ts
 interface ExplicablEvent {
@@ -132,7 +125,7 @@ Future versions will expand this with:
 
 ---
 
-## 🧪 Testing
+## Testing
 
 Explicabl ships with full unit tests:
 
@@ -149,7 +142,7 @@ npm test
 
 ---
 
-## 🗺️ Roadmap
+## Roadmap
 
 - `explicabl-core` package with shared event schema (non-Express)
 - OTEL/trace/span support

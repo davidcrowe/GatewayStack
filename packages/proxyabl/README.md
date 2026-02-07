@@ -1,8 +1,4 @@
-## `packages/proxyabl/README.md`
-
-```md
 # @gatewaystack/proxyabl
-```
 
 **Execution control & identity-aware routing for tools and models.**
 
