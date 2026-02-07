@@ -28,14 +28,24 @@
 </p>
 
 ```bash
-npm install @gatewaystack/identifiabl @gatewaystack/proxyabl @gatewaystack/explicabl @gatewaystack/request-context
+npm install @gatewaystack/identifiabl @gatewaystack/validatabl @gatewaystack/limitabl \
+  @gatewaystack/transformabl @gatewaystack/proxyabl @gatewaystack/explicabl @gatewaystack/request-context
 ```
 
 ## Status
 
-- Live on npm: `identifiabl`, `proxyabl`, `explicabl`, `request-context`
-- In progress: `validatabl`, `limitabl`
-- Roadmap: `transformabl`
+All six governance modules are live on npm:
+
+| Module | npm | What it does |
+|--------|-----|-------------|
+| `@gatewaystack/identifiabl` | [![npm](https://img.shields.io/npm/v/@gatewaystack/identifiabl)](https://www.npmjs.com/package/@gatewaystack/identifiabl) | RS256 JWT verification, identity normalization |
+| `@gatewaystack/transformabl` | [![npm](https://img.shields.io/npm/v/@gatewaystack/transformabl)](https://www.npmjs.com/package/@gatewaystack/transformabl) | PII detection, redaction, safety classification |
+| `@gatewaystack/validatabl` | [![npm](https://img.shields.io/npm/v/@gatewaystack/validatabl)](https://www.npmjs.com/package/@gatewaystack/validatabl) | Deny-by-default policy engine, scope/permission enforcement |
+| `@gatewaystack/limitabl` | [![npm](https://img.shields.io/npm/v/@gatewaystack/limitabl)](https://www.npmjs.com/package/@gatewaystack/limitabl) | Rate limits, budget tracking, agent guard |
+| `@gatewaystack/proxyabl` | [![npm](https://img.shields.io/npm/v/@gatewaystack/proxyabl)](https://www.npmjs.com/package/@gatewaystack/proxyabl) | Auth mode routing, SSRF protection, identity-aware proxy |
+| `@gatewaystack/explicabl` | [![npm](https://img.shields.io/npm/v/@gatewaystack/explicabl)](https://www.npmjs.com/package/@gatewaystack/explicabl) | Structured audit logging, health endpoints |
+
+Each module has a `-core` package (framework-agnostic, pure functions) and an Express middleware wrapper.
 
 ## The three-party problem
 
@@ -62,9 +72,8 @@ Modern AI apps involve three actors — the **user**, the **LLM**, and **your ba
            │ ❓ What are they allowed to do?
 ```
 
-- Users want AI to access *their* data (ChatGPT reading *my* calendar). 
-- Enterprises want to control *who* can use AI models (only doctors can use medical models, only directors can send sensitive prompts). 
-- Enterprises want to control *who* can use AI models (only doctors can use medical models, only directors can send sensitive prompts). 
+- Users want AI to access *their* data (ChatGPT reading *my* calendar).
+- Enterprises want to control *who* can use AI models (only doctors can use medical models, only directors can send sensitive prompts).
 
 Both the LLM and your backend require **cryptographic proof of user identity** tied to every AI request... but AI platforms authenticate users on their side while your backend has no verified identity to enforce policies, filter data, or log actions.
 
@@ -115,19 +124,24 @@ Every AI request flows through six governance checkpoints:
 
 - Verify **real user identity** on every AI request (RS256 JWTs via your IdP)
 - Enforce **per-user / per-tenant** policies and scopes for tools and models
+- Detect and redact **PII** in prompts before they reach LLMs
 - Apply **rate limits & spend caps** per user/team/org
+- Prevent **agent runaway** with tool call limits and workflow cost caps
 - Inject **X-User-Id / X-Org-Id** into downstream services (no JWT handling there)
-- Emit **audit-ready logs** for “who did what, with which data, via which model”
+- Emit **audit-ready logs** for "who did what, with which data, via which model"
 
 See full examples: **[docs/examples.md](docs/examples.md)**
 
 ## Quickstart — Code (3 minutes)
 
-Install the identity, routing, and audit layers:
+Install all six governance layers:
 
 ```bash
 npm install \
   @gatewaystack/identifiabl \
+  @gatewaystack/transformabl \
+  @gatewaystack/validatabl \
+  @gatewaystack/limitabl \
   @gatewaystack/proxyabl \
   @gatewaystack/explicabl \
   @gatewaystack/request-context \
@@ -143,10 +157,14 @@ Create **app.ts**:
 import express from "express";
 import { runWithGatewayContext } from "@gatewaystack/request-context";
 import { identifiabl } from "@gatewaystack/identifiabl";
+import { transformabl } from "@gatewaystack/transformabl";
+import { validatabl } from "@gatewaystack/validatabl";
+import { limitabl } from "@gatewaystack/limitabl";
 import { createProxyablRouter, configFromEnv } from "@gatewaystack/proxyabl";
 import { createConsoleLogger, explicablLoggingMiddleware } from "@gatewaystack/explicabl";
 
 const app = express();
+app.use(express.json());
 
 // 1. Establish request context for downstream layers
 app.use((req, _res, next) => {
@@ -163,26 +181,23 @@ app.use(explicablLoggingMiddleware(createConsoleLogger()));
 app.use(identifiabl({
   issuer: process.env.OAUTH_ISSUER!,
   audience: process.env.OAUTH_AUDIENCE!,
-  jwksUri: process.env.OAUTH_JWKS_URI
 }));
 
-// 4. Route /tools to your tool/model backends
-app.use("/tools", createProxyablRouter(configFromEnv(process.env)));
+// 4. Detect PII and classify content safety
+app.use("/tools", transformabl({ blockThreshold: 80 }));
 
-app.listen(8080, () => {
-  console.log("GatewayStack running on :8080");
-
-// 2. Log every request
-app.use(explicablLoggingMiddleware(createConsoleLogger()));
-
-// 3. Require verified RS256 token
-app.use(identifiabl({
-  issuer: process.env.OAUTH_ISSUER!,
-  audience: process.env.OAUTH_AUDIENCE!,
-  jwksUri: process.env.OAUTH_JWKS_URI
+// 5. Enforce authorization policies
+app.use("/tools", validatabl({
+  requiredPermissions: ["tool:read"],
 }));
 
-// 4. Route /tools to your tool/model backends
+// 6. Apply rate limits and budget caps
+app.use("/tools", limitabl({
+  rateLimit: { windowMs: 60_000, maxRequests: 100 },
+  budget: { maxSpend: 500, periodMs: 86_400_000 },
+}));
+
+// 7. Route /tools to your tool/model backends
 app.use("/tools", createProxyablRouter(configFromEnv(process.env)));
 
 app.listen(8080, () => {
@@ -216,21 +231,22 @@ This starts:
 - Gateway server on :8080
 - Admin UI on :5173 (visualizes /health)
 
-This starts:
-
-- Gateway server on :8080
-- Admin UI on :5173 (visualizes /health)
-
 ### What You Get
 
-- ✅ **RS256 JWT Verification** via JWKS (issuer, audience, exp, nbf, sub checks)
-- ✅ **Per-tool scope enforcement** (deny-by-default; 401/403 outcomes)
-- ✅ **Protected resource endpoint** for smoke tests
-- ✅ **Verified Identity Injection** — The gateway injects a cryptographically verified user ID (`X-User-Id`) into every proxied request, so downstream services can enforce per-user/per-tenant filtering without ever handling JWTs or seeing upstream API keys. This turns "shared key chaos" into "every call is attributable."
-- ✅ **Rate limiting** (user/tenant aware)
-- ✅ **Health endpoints** (`/health`, `/health/auth0`)
-- ✅ *(Optional)* **DCR webhook** to auto-promote new OAuth clients from Auth0 logs
-- ✅ **Echo test servers** to validate proxy/header injection
+- **RS256 JWT Verification** via JWKS (issuer, audience, exp, nbf, sub checks)
+- **PII detection and redaction** (email, phone, SSN, credit card, IP, DOB)
+- **Content safety classification** (prompt injection, jailbreak, code injection detection)
+- **Deny-by-default policy engine** with scope/role/permission enforcement
+- **Per-user rate limits and budget caps** with pre-flight checks
+- **Agent guard** (tool call limits, workflow cost caps, duration limits)
+- **Per-tool scope enforcement** (401/403 outcomes)
+- **SSRF protection** (host allowlist, private IP blocking, protocol enforcement)
+- **Auth mode routing** (API key, forward bearer, service OAuth, user OAuth)
+- **Verified identity injection** into downstream headers (`X-User-Id`, `X-Org-Id`)
+- **Structured audit logging** (one JSON event per request)
+- **Health endpoints** (`/health`, `/health/auth0`)
+- *(Optional)* **DCR webhook** to auto-promote new OAuth clients from Auth0 logs
+- **Echo test servers** to validate proxy/header injection
 
 ### Prerequisites
 
@@ -239,67 +255,64 @@ This starts:
 - An **Auth0 tenant** (or equivalent OIDC provider issuing RS256 access tokens)
 - *(Optional)* Google Cloud SDK for Cloud Run deploys
 
+### Core Governance Layers
+
+| Layer         | Status | Purpose |
+|---------------|--------|---------|
+| **identifiabl**  | Live | Trust & identity binding — RS256 JWT verification, multi-audience, claim mapping |
+| **transformabl** | Live | Content safety — PII detection/redaction, prompt injection detection, regulatory flags |
+| **validatabl**   | Live | Authorization — deny-by-default policies, scope/role/permission enforcement, schema validation |
+| **limitabl**     | Live | Resource governance — sliding-window rate limits, budget tracking, agent guard |
+| **proxyabl**     | Live | Execution control — auth mode routing, SSRF protection, HTTP proxy, provider registry |
+| **explicabl**    | Live | Audit & observability — structured JSON logging, health endpoints, webhook integration |
+
+### GatewayStack vs Traditional API Gateways
+
+| Feature | Kong/Apigee/AWS API Gateway | GatewayStack |
+|---------|---------------------------|--------------|
+| **JWT validation** | Built-in | Built-in |
+| **Rate limiting** | Built-in | Built-in |
+| **Path/method routing** | Built-in | Built-in |
+| **User identity normalization** | Manual (custom plugin) | Built-in |
+| **Three-party identity binding (LLM → backend)** | Manual (custom logic) | Built-in |
+| **Per-tool scope enforcement** | Manual (custom policy) | Built-in |
+| **PII detection & redaction** | Not available | Built-in |
+| **Content safety classification** | Not available | Built-in |
+| **Pre-flight budget checks** | Manual (custom plugin) | Built-in |
+| **Agent runaway prevention** | Not available | Built-in |
+| **Apps SDK / MCP compliance** | Manual (PRM endpoint) | Built-in |
+| **Model-specific policies** | Manual (custom logic) | Built-in |
+| **AI audit trails** | Manual (log forwarding) | Built-in |
+
 ## Repository layout
 
 | Path | Highlights |
 | ---- | ---------- |
 | `apps/gateway-server` | Express reference server wiring all six governance layers, `/protected/*` samples, demo/test routes, and a ready-to-build Docker image. |
 | `apps/admin-ui` | Minimal Vite/React dashboard that polls `/health` so you can monitor the gateway while iterating. |
-| `packages/` | Publishable packages for each layer plus helpers like `compat`, `request-context`, and `integrations`. |
+| `packages/` | Publishable packages for each layer — six `-core` packages (framework-agnostic) and six Express middleware wrappers, plus `request-context`, `compat`, and `integrations`. |
 | `demos/` | Working MCP issuer + ChatGPT Apps SDK connectors that mint demo JWTs and exercise the gateway. |
 | `tools/` | Supporting utilities (echo server, mock tool backend, Cloud Run deploy helper, smoke harnesses). |
-| `tests/` | Vitest entry points and placeholder smoke tests for parity. |
+| `tests/` | Vitest entry points and smoke tests. |
 | `docs/` | Auth0 walkthroughs, conformance output, endpoint references, troubleshooting notes. |
-
-### Core Governance Layers (and GatewayStack packages)
-
-| Layer         | Status | Purpose |
-|---------------|--------|---------|
-| **identifiabl**  | ✅ | Trust & Identity Binding (verifies RS256 JWTs) |
-| **transformabl** | ⚪ | Content safety preprocessing (redaction, normalization) |
-| **validatabl**   | ⚪ | Authorization & scope-based policy enforcement |
-| **limitabl**     | ⚪ | Rate & spend governance per user/tenant |
-| **proxyabl**     | ✅ | Identity-aware routing for tools/models |
-| **explicabl**    | ✅ | Audit-grade request logging & health endpoints |
-
 
 ### Package breakdown
 
-- `@gatewaystack/identifiabl` – **Trust & Identity Binding.** Express middleware that verifies RS256 JWTs (via `jose`), enforces `iss`/`aud`, and attaches a canonical `req.user` for downstream policy, routing, and audit.
+- `@gatewaystack/identifiabl-core` / `@gatewaystack/identifiabl` — **Trust & Identity Binding.** Verifies RS256 JWTs via JWKS, enforces issuer/audience, maps claims into a canonical `GatewayIdentity`. Supports multi-audience verification and configurable claim extraction (tenant, roles, scopes, plan).
 
-- `@gatewaystack/transformabl` – **Content Safety & Normalization.** Request/response normalization hook. Currently a no-op, reserved for redaction/classification/safety transforms that run *before* authorization and routing.
+- `@gatewaystack/transformabl-core` / `@gatewaystack/transformabl` — **Content Safety & Transformation.** Regex-based PII detection (email, phone, SSN, credit card, IP, DOB), three redaction modes (mask, remove, placeholder), safety classification (prompt injection, jailbreak, code injection), regulatory flagging (GDPR, PCI, COPPA, HIPAA), and risk scoring. Runs *before* authorization so policies can reference content risk.
 
-- `@gatewaystack/validatabl-core` / `@gatewaystack/validatabl` – **Authorization & Policy Enforcement.** Scope utilities plus Express helpers (e.g. `requireScope`) and the Protected Resource Metadata `.well-known` route. Enforces deny-by-default, fine-grained access to tools and models.
+- `@gatewaystack/validatabl-core` / `@gatewaystack/validatabl` — **Authorization & Policy Enforcement.** Deny-by-default policy engine with priority-ordered rules and condition operators (equals, contains, in, matches, exists). Scope/role/permission checking, input schema validation, and a unified `decision()` entry point. Express middleware includes `requireScope()` and `requirePermissions()` guards.
 
-- `@gatewaystack/limitabl` – **Spend Controls & Resource Governance.** Rate limiting keyed on `sub`/`org_id` (falling back to IP) to prevent runaway agents, abuse, and unbounded cost at the user/tenant level.
+- `@gatewaystack/limitabl-core` / `@gatewaystack/limitabl` — **Spend Controls & Resource Governance.** Sliding-window rate limiter per user/org/IP, per-user budget tracking with pre-flight estimation, and agent guard (tool call limits, workflow cost caps, duration caps). Two-phase middleware model: pre-flight check, then post-execution recording.
 
-- `@gatewaystack/proxyabl` – **Execution Control & Identity-Aware Routing.** Tool gateway + proxy router that:
-  - Serves PRM/OIDC metadata for OAuth 2.1 / MCP / Apps SDK
-  - Enforces scope-to-tool mappings (`TOOL_SCOPES_JSON`)
-  - Injects verified identity into headers/queries (e.g. `X-User-Id`)
-  - Hosts Auth0 integration points for log streams / DCR
+- `@gatewaystack/proxyabl-core` / `@gatewaystack/proxyabl` — **Execution Control & Identity-Aware Routing.** Five auth modes (API key, forward bearer, service OAuth, user OAuth, none), SSRF protection (host allowlist, private IP blocking), HTTP proxy with timeout/redirect/size controls, multi-provider registry. Express middleware serves PRM/OIDC metadata, enforces scope-to-tool mappings, and injects verified identity into downstream headers.
 
-- `@gatewaystack/explicabl` / `@gatewaystack/explicabl-core` – **Runtime Audit & Conformance.** Read-only on the RequestContext, write-only to external systems. Health endpoints, log/webhook handlers, and the conformance reporter (`saveReport.ts`) that emit correlated events to SIEM/observability stacks without blocking the critical path.
+- `@gatewaystack/explicabl` — **Runtime Audit & Conformance.** One structured JSON event per request with HTTP metadata, identity context, and timing. Health endpoints, Auth0 webhook integration, pluggable logger.
 
-- `@gatewaystack/compat` – **Interop & Parity Harness.** Legacy/test router that mirrors the original `/echo` shape for quick interoperability and regression testing.
+- `@gatewaystack/request-context` — **Request-Scoped Context.** AsyncLocalStorage-based context propagation. Seeds `GatewayContext` per request; all layers read/write their fields without parameter threading.
 
-- `@gatewaystack/request-context`, `@gatewaystack/integrations`, and additional `*-core` folders – Shared types, RequestContext helpers, and staging areas for upcoming connectors as the Agentic Control Plane expands.
-
-### GatewayStack vs Traditional API Gateways
-
-| Feature | Kong/Apigee/AWS API Gateway | GatewayStack |
-|---------|---------------------------|--------------|
-| **JWT validation** | ✅ Built-in | ✅ Built-in |
-| **Rate limiting** | ✅ Built-in | ✅ Built-in |
-| **Path/method routing** | ✅ Built-in | ✅ Built-in |
-| **User identity normalization** | ❌ Manual (custom plugin) | ✅ Built-in |
-| **Three-party identity binding (LLM → backend)** | ❌ (custom logic) | ✅ Built-in |
-| **Per-tool scope enforcement** | ❌ Manual (custom policy) | ✅ Built-in |
-| **Apps SDK / MCP compliance** | ❌ Manual (PRM endpoint) | ✅ Built-in |
-| **Pre-flight cost checks** | ❌ Manual (custom plugin) | ✅ Roadmap |
-| **Model-specific policies** | ❌ Manual (custom logic) | ✅ Built-in |
-| **AI audit trails** | ❌ Manual (log forwarding) | ✅ Built-in |
-| **Setup time** | 100+ hours (custom dev) | 2 hours (config) |
+- `@gatewaystack/compat` — **Interop & Parity Harness.** Legacy/test router that mirrors the original `/echo` shape for regression testing.
 
 ## Docs
 
@@ -319,7 +332,7 @@ Run the full test suite:
 npm test
 ```
 
-This runs Vitest plus the conformance report writer that updates `docs/conformance.json`.
+135 tests across 17 test files covering all five core packages (proxyabl-core, transformabl-core, validatabl-core, identifiabl-core, limitabl-core).
 
 ## Contributing
 
