@@ -1,7 +1,8 @@
 {
   "name": "@gatewaystack/identifiabl",
   "private": false,
-  "version": "0.0.6",
+  "version": "0.0.7",
+  "license": "MIT",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -15,7 +16,6 @@
   ],
   "dependencies": {
     "jose": "^5.0.0",
-    "identifiabl": "0.1.0",
     "@gatewaystack/request-context": "^0.0.6"
   },
   "peerDependencies": {
